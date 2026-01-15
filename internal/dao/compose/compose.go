@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/jessym/d4s/internal/dao/common"
 	"golang.org/x/net/context"
+	"os"
 )
 
 type Manager struct {
@@ -69,10 +70,15 @@ func (m *Manager) List() ([]common.Resource, error) {
 
 	var res []common.Resource
 	for name, data := range projects {
+		var configStr string
+		if data.config != "" {
+			configStr = fmt.Sprintf("📄 [#6272a4]%s", data.config)
+		}
+		
 		res = append(res, ComposeProject{
 			Name:        name,
 			Status:      fmt.Sprintf("Running (%d/%d)", data.running, data.total),
-			ConfigFiles: data.config,
+			ConfigFiles: configStr,
 		})
 	}
 	return res, nil
@@ -133,4 +139,45 @@ func (m *Manager) Restart(projectName string) error {
 		return fmt.Errorf("errors restarting containers: %s", strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+func (m *Manager) GetConfig(projectName string) (string, error) {
+	// Find one container to get config path
+	args := filters.NewArgs()
+	args.Add("label", fmt.Sprintf("com.docker.compose.project=%s", projectName))
+	
+	containers, err := m.cli.ContainerList(m.ctx, container.ListOptions{Filters: args, All: true, Limit: 1})
+	if err != nil {
+		return "", err
+	}
+	
+	if len(containers) == 0 {
+		return "", fmt.Errorf("project not found or no containers")
+	}
+	
+	configFiles := containers[0].Labels["com.docker.compose.project.config_files"]
+	if configFiles == "" {
+		return "", fmt.Errorf("no config files label found")
+	}
+	
+	// Handle multiple files (separated by comma)
+	files := strings.Split(configFiles, ",")
+	var sb strings.Builder
+	
+	for _, f := range files {
+		path := strings.TrimSpace(f)
+		if path == "" { continue }
+		
+		content, err := os.ReadFile(path)
+		if err != nil {
+			sb.WriteString(fmt.Sprintf("# Error reading %s: %v\n", path, err))
+			continue
+		}
+		
+		sb.WriteString(fmt.Sprintf("# File: %s\n", path))
+		sb.WriteString(string(content))
+		sb.WriteString("\n---\n")
+	}
+	
+	return sb.String(), nil
 }

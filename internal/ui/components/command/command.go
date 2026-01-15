@@ -40,7 +40,8 @@ func (c *CommandComponent) setupHandlers() {
 			c.App.RefreshCurrentView()
 			c.App.SetFlashText("")
 			
-			// Restore focus
+			// Restore focus and hide cmdline
+			c.App.SetCmdLineVisible(false)
 			c.App.RestoreFocus()
 			return nil
 		}
@@ -63,7 +64,8 @@ func (c *CommandComponent) setupHandlers() {
 			
 			c.Reset()
 			
-			// Restore focus
+			// Restore focus and hide cmdline
+			c.App.SetCmdLineVisible(false)
 			c.App.RestoreFocus()
 		}
 	})

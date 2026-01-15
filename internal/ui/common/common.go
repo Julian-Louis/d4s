@@ -39,6 +39,10 @@ type AppController interface {
 	// Direct access for command component (needed for handlers)
 	GetActiveFilter() string
 	SetActiveFilter(filter string)
+	
+	// Layout management
+	SetCmdLineVisible(visible bool)
+	UpdateShortcuts()
 }
 
 func FormatSCHeader(key, action string) string {

@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -34,7 +36,6 @@ type App struct {
 	Pages   *tview.Pages
 	CmdLine *command.CommandComponent
 	Flash   *footer.FlashComponent
-	Footer  *footer.FooterComponent
 	Help    tview.Primitive
 
 	// Views
@@ -111,18 +112,18 @@ func (a *App) initUI() {
 	a.CmdLine = command.NewCommandComponent(a)
 	
 	a.Flash = footer.NewFlashComponent()
-	a.Footer = footer.NewFooterComponent()
 
 	// 4. Help View
 	a.Help = dialogs.NewHelpView(a)
 
 	// 6. Layout
-	a.Layout = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.Header.View, 6, 1, false).
-		AddItem(a.CmdLine.View, 3, 1, false). // Moved above table with border (3 lines: border + content + border)
+	a.Layout = tview.NewFlex().SetDirection(tview.FlexRow)
+	a.Layout.SetBackgroundColor(styles.ColorBg)
+
+	a.Layout.AddItem(a.Header.View, 6, 1, false).
+		AddItem(a.CmdLine.View, 0, 0, false). // Hidden by default (size 0, proportion 0)
 		AddItem(a.Pages, 0, 1, true).
-		AddItem(a.Flash.View, 1, 1, false).
-		AddItem(a.Footer.View, 1, 1, false)
+		AddItem(a.Flash.View, 1, 1, false)
 
 	// Global Shortcuts
 	a.TviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -131,14 +132,21 @@ func (a *App) initUI() {
 		}
 		
 		// Helper to close modals if open
-		if a.Pages.HasPage("inspect") && event.Key() == tcell.KeyEsc {
-			a.Pages.RemovePage("inspect")
-			// Restore focus to active view
-			page, _ := a.Pages.GetFrontPage()
-			if view, ok := a.Views[page]; ok {
-				a.TviewApp.SetFocus(view.Table)
+		if a.Pages.HasPage("inspect") {
+			if event.Key() == tcell.KeyEsc {
+				a.Pages.RemovePage("inspect")
+				// Restore focus to active view
+				page, _ := a.Pages.GetFrontPage()
+				if view, ok := a.Views[page]; ok {
+					a.TviewApp.SetFocus(view.Table)
+				}
+				a.UpdateShortcuts() // Update shortcuts immediately
+				return nil
 			}
-			return nil
+			// Pass 'c' through to modal
+			if event.Rune() == 'c' {
+				return event
+			}
 		}
 
 	// Don't intercept global keys if an input modal is open
@@ -196,7 +204,7 @@ func (a *App) initUI() {
 				a.PerformScale()
 			}
 			return nil
-		case 'c': // Contextual Create
+		case 'a': // Contextual Add (Create)
 			page, _ := a.Pages.GetFrontPage()
 			if page == styles.TitleVolumes {
 				a.PerformCreateVolume()
@@ -206,6 +214,9 @@ func (a *App) initUI() {
 				a.PerformCreateNetwork()
 				return nil
 			}
+			return nil
+		case 'c': // Global Copy
+			a.PerformCopy()
 			return nil
 		case 'o': // Open Volume
 			page, _ := a.Pages.GetFrontPage()
@@ -317,6 +328,15 @@ func (a *App) GetActiveFilter() string {
 
 func (a *App) SetActiveFilter(filter string) {
 	a.ActiveFilter = filter
+}
+
+func (a *App) SetCmdLineVisible(visible bool) {
+	size := 0
+	if visible {
+		size = 3
+	}
+	// Important: Set proportion to 0 when hidden, otherwise it takes relative space
+	a.Layout.ResizeItem(a.CmdLine.View, size, 0)
 }
 
 func (a *App) PerformOpenVolume() {
@@ -467,15 +487,7 @@ func (a *App) PerformLogs() {
 	a.Pages.AddPage("logs", logView, true, true)
 	a.TviewApp.SetFocus(logView)
 
-	// Update Footer for Logs
-	shortcuts := common.FormatSC("?", "Help") + 
-				 common.FormatSC("s", "AutoScroll") + 
-				 common.FormatSC("w", "Wrap") + 
-				 common.FormatSC("t", "Time") + 
-				 common.FormatSC("c", "Copy") + 
-				 common.FormatSC("S+c", "Clear") + 
-				 common.FormatSC("Esc", "Back")
-	a.Footer.SetText(shortcuts)
+	a.UpdateShortcuts()
 }
 
 func (a *App) PerformShell() {
@@ -653,6 +665,66 @@ func (a *App) PerformPrune() {
 	})
 }
 
+func stripColorTags(text string) string {
+	return regexp.MustCompile(`\[[^\]]*\]`).ReplaceAllString(text, "")
+}
+
+func (a *App) copyToClipboard(text string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	case "linux":
+		// Try xclip first, then xsel
+		if _, err := exec.LookPath("xclip"); err == nil {
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		} else if _, err := exec.LookPath("xsel"); err == nil {
+			cmd = exec.Command("xsel", "--clipboard", "--input")
+		} else {
+			return fmt.Errorf("no clipboard tool found (install xclip or xsel)")
+		}
+	case "windows":
+		cmd = exec.Command("clip")
+	default:
+		return fmt.Errorf("unsupported OS")
+	}
+
+	cmd.Stdin = strings.NewReader(text)
+	return cmd.Run()
+}
+
+func (a *App) PerformCopy() {
+	page, _ := a.Pages.GetFrontPage()
+	view, ok := a.Views[page]
+	if !ok { return }
+
+	var buffer bytes.Buffer
+	
+	// Headers
+	var headers []string
+	for i := 0; i < view.Table.GetColumnCount(); i++ {
+		cell := view.Table.GetCell(0, i)
+		headers = append(headers, stripColorTags(strings.TrimSpace(cell.Text)))
+	}
+	buffer.WriteString(strings.Join(headers, "\t") + "\n")
+
+	// Data Rows (view.Data is already filtered/sorted)
+	for _, item := range view.Data {
+		cells := item.GetCells()
+		var line []string
+		for _, cell := range cells {
+			line = append(line, stripColorTags(cell))
+		}
+		buffer.WriteString(strings.Join(line, "\t") + "\n")
+	}
+	
+	if err := a.copyToClipboard(buffer.String()); err != nil {
+		a.Flash.SetText(fmt.Sprintf("[red]Copy error: %v", err))
+	} else {
+		a.Flash.SetText(fmt.Sprintf("[green]Copied %d rows", len(view.Data)))
+	}
+}
+
 // Helper to get selected ID safely
 func (a *App) getSelectedID(v *view.ResourceView) (string, error) {
 	row, _ := v.Table.GetSelection()
@@ -789,6 +861,7 @@ func (a *App) PerformContainerNetworks() {
 }
 
 func (a *App) ActivateCmd(initial string) {
+	a.SetCmdLineVisible(true)
 	a.CmdLine.Activate(initial)
 }
 
@@ -856,6 +929,16 @@ func (a *App) InspectCurrentSelection() {
 		resourceType = "service"
 	case styles.TitleNodes:
 		resourceType = "node"
+	case styles.TitleCompose:
+		// Special case for Compose
+		content, err := a.Docker.GetComposeConfig(id)
+		if err != nil {
+			a.Flash.SetText(fmt.Sprintf("[red]Inspect error: %v", err))
+			return
+		}
+		dialogs.ShowInspectModal(a, id, content)
+		a.UpdateShortcuts()
+		return
 	}
 
 	content, err := a.Docker.Inspect(resourceType, id)
@@ -865,6 +948,7 @@ func (a *App) InspectCurrentSelection() {
 	}
 
 	dialogs.ShowInspectModal(a, id, content)
+	a.UpdateShortcuts()
 }
 
 func (a *App) RefreshCurrentView() {
@@ -880,6 +964,29 @@ func (a *App) RefreshCurrentView() {
 	}
 	
 	filter := a.ActiveFilter
+
+	// 1. Immediate Updates (Optimistic UI)
+	a.UpdateShortcuts()
+	
+	viewName := strings.ToLower(page)
+	title := fmt.Sprintf(" [#8be9fd]%s [#8be9fd][[white]...[#8be9fd]] ", viewName)
+	
+	if a.ActiveScope != nil {
+		parentView := strings.ToLower(a.ActiveScope.OriginView)
+		title = fmt.Sprintf(" [#8be9fd]%s [dim](%s) > [#bd93f9]%s [#8be9fd][[white]...[#8be9fd]] ", 
+			parentView, 
+			a.ActiveScope.Label,
+			viewName)
+	}
+	
+	if filter != "" {
+		title += fmt.Sprintf(" [#8be9fd][[white]Filter: %s[#8be9fd]] ", filter)
+	}
+	
+	view.Table.SetTitle(title)
+	view.Table.SetTitleColor(styles.ColorTitle)
+	view.Table.SetBorder(true)
+	view.Table.SetBorderColor(styles.ColorTableBorder)
 
 	go func() {
 		var err error
@@ -929,11 +1036,11 @@ func (a *App) RefreshCurrentView() {
 				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
 			} else {
 				viewName := strings.ToLower(page)
-				title := fmt.Sprintf(" [#8be9fd]%s [%d] ", viewName, len(view.Data))
+				title := fmt.Sprintf(" [#8be9fd]%s [#8be9fd][[white]%d[#8be9fd]] ", viewName, len(view.Data))
 				
 				if a.ActiveScope != nil {
 					parentView := strings.ToLower(a.ActiveScope.OriginView)
-					title = fmt.Sprintf(" [#8be9fd]%s [dim](%s) > [#bd93f9]%s [white][%d] ", 
+					title = fmt.Sprintf(" [#8be9fd]%s [dim](%s) > [#bd93f9]%s [#8be9fd][[white]%d[#8be9fd]] ", 
 						parentView, 
 						a.ActiveScope.Label,
 						viewName,
@@ -941,7 +1048,7 @@ func (a *App) RefreshCurrentView() {
 				}
 				
 				if filter != "" {
-					title += fmt.Sprintf(" [Filter: %s] ", filter)
+					title += fmt.Sprintf(" [#8be9fd][[white]Filter: %s[#8be9fd]] ", filter)
 				}
 				view.Table.SetTitle(title)
 				view.Table.SetTitleColor(styles.ColorTitle)
@@ -949,8 +1056,6 @@ func (a *App) RefreshCurrentView() {
 				view.Table.SetBorderColor(styles.ColorTableBorder)
 				
 				view.Update(headers, data)
-				
-				a.Footer.SetText("") // Clear unless logs overrides
 				
 				status := fmt.Sprintf("Viewing %s", page)
 				if filter != "" {
@@ -966,69 +1071,85 @@ func (a *App) getCurrentShortcuts() []string {
 	page, _ := a.Pages.GetFrontPage()
 	var shortcuts []string
 	
-	commonShortcuts := []string{
-		common.FormatSCHeader("?", "Help"),
-		common.FormatSCHeader("/", "Filter"),
-		common.FormatSCHeader("S+Arr", "Sort"),
-	}
-
 	switch page {
 	case styles.TitleContainers:
 		shortcuts = []string{
 			common.FormatSCHeader("l", "Logs"),
 			common.FormatSCHeader("s", "Shell"),
-			common.FormatSCHeader("S", "Stats"),
-			common.FormatSCHeader("d", "Inspect"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("e", "Env"),
-			common.FormatSCHeader("t", "Top"),
-			common.FormatSCHeader("v", "Vols"),
-			common.FormatSCHeader("n", "Nets"),
+			common.FormatSCHeader("t", "Stats"),
+			common.FormatSCHeader("v", "Volumes"),
+			common.FormatSCHeader("n", "Networks"),
 			common.FormatSCHeader("r", "(Re)Start"),
 			common.FormatSCHeader("x", "Stop"),
 		}
 	case styles.TitleImages:
 		shortcuts = []string{
-			common.FormatSCHeader("d", "Inspect"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("p", "Prune"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleVolumes:
 		shortcuts = []string{
-			common.FormatSCHeader("d", "Inspect"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("o", "Open"),
-			common.FormatSCHeader("c", "Create"),
+			common.FormatSCHeader("a", "Add"),
 			common.FormatSCHeader("p", "Prune"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleNetworks:
 		shortcuts = []string{
-			common.FormatSCHeader("d", "Inspect"),
-			common.FormatSCHeader("c", "Create"),
+			common.FormatSCHeader("d", "Describe"),
+			common.FormatSCHeader("a", "Add"),
 			common.FormatSCHeader("p", "Prune"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleServices:
 		shortcuts = []string{
-			common.FormatSCHeader("d", "Inspect"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("s", "Scale"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleNodes:
 		shortcuts = []string{
-			common.FormatSCHeader("d", "Inspect"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleCompose:
 		shortcuts = []string{
 			common.FormatSCHeader("Enter", "Containers"),
+			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("r", "(Re)Start"),
 			common.FormatSCHeader("x", "Stop"),
+		}
+	case "inspect":
+		return []string{
+			common.FormatSCHeader("c", "Copy"),
+			common.FormatSCHeader("Esc", "Close"),
+		}
+	case "logs":
+		return []string{
+			common.FormatSCHeader("s", "AutoScroll"),
+			common.FormatSCHeader("w", "Wrap"),
+			common.FormatSCHeader("t", "Time"),
+			common.FormatSCHeader("c", "Copy"),
+			common.FormatSCHeader("S+c", "Clear"),
+			common.FormatSCHeader("Esc", "Back"),
 		}
 	default:
 	}
 	
-	shortcuts = append(shortcuts, commonShortcuts...)
+	shortcuts = append(shortcuts, common.FormatSCHeader("S+Arr", "Sort"))
+	shortcuts = append(shortcuts, common.FormatSCHeader("c", "Copy"))
+	shortcuts = append(shortcuts, common.FormatSCHeader("?", "Help"))
+	
 	return shortcuts
+}
+
+func (a *App) UpdateShortcuts() {
+	shortcuts := a.getCurrentShortcuts()
+	a.Header.UpdateShortcuts(shortcuts)
 }
 
 func (a *App) updateHeader() {
@@ -1038,14 +1159,15 @@ func (a *App) updateHeader() {
 			return 
 		}
 		
-		shortcuts := a.getCurrentShortcuts()
 		a.TviewApp.QueueUpdateDraw(func() {
+			shortcuts := a.getCurrentShortcuts()
 			a.Header.Update(stats, shortcuts)
 		})
 		
 		statsWithUsage, err := a.Docker.GetHostStatsWithUsage()
 		if err == nil {
 			a.TviewApp.QueueUpdateDraw(func() {
+				shortcuts := a.getCurrentShortcuts()
 				a.Header.Update(statsWithUsage, shortcuts)
 			})
 		}

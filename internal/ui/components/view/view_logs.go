@@ -55,6 +55,7 @@ func NewLogView(app common.AppController, id, resourceType string) *LogView {
 			app.GetPages().RemovePage("logs")
 			// Restore footer shortcuts
 			app.GetTviewApp().SetFocus(app.GetPages()) // Focus pages/table?
+			app.UpdateShortcuts()
 			return nil
 		}
 		

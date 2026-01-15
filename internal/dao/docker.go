@@ -6,7 +6,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"github.com/jessym/d4s/internal/dao/common"
-	"github.com/jessym/d4s/internal/dao/compose/compose"
+	"github.com/jessym/d4s/internal/dao/compose"
 	"github.com/jessym/d4s/internal/dao/docker/container"
 	"github.com/jessym/d4s/internal/dao/docker/image"
 	"github.com/jessym/d4s/internal/dao/docker/network"
@@ -159,6 +159,10 @@ func (d *DockerClient) StopComposeProject(projectName string) error {
 
 func (d *DockerClient) RestartComposeProject(projectName string) error {
 	return d.Compose.Restart(projectName)
+}
+
+func (d *DockerClient) GetComposeConfig(projectName string) (string, error) {
+	return d.Compose.GetConfig(projectName)
 }
 
 // Common/Stats wrappers

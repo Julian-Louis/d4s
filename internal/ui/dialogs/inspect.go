@@ -2,9 +2,9 @@ package dialogs
 
 import (
 	"fmt"
-	"io"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/jessym/d4s/internal/ui/common"
@@ -50,19 +50,12 @@ func ShowInspectModal(app common.AppController, title, content string) {
 				return nil
 			}
 
-			stdin, err := cmd.StdinPipe()
-			if err != nil {
-				app.SetFlashText("[red]Copy error: stdin pipe")
-				return nil
-			}
-			go func() {
-				defer stdin.Close()
-				io.WriteString(stdin, content)
-			}()
+			cmd.Stdin = strings.NewReader(content)
+			
 			if err := cmd.Run(); err != nil {
 				app.SetFlashText(fmt.Sprintf("[red]Copy error: %v (install xclip/pbcopy?)", err))
 			} else {
-				app.SetFlashText("[green]Copied to clipboard!")
+				app.SetFlashText(fmt.Sprintf("[green]Copied %d bytes to clipboard!", len(content)))
 			}
 			return nil
 		}

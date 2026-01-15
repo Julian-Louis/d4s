@@ -1,4 +1,9 @@
-# D4S 🍊 (Docker for Services)
+<div align="center" width="100%">
+    <img src="./docs/img/d4s.png" width="128" alt="" />
+</div>
+
+
+# D-Force (d4S) 🍊
 
 > **The K9s experience for Docker.**  
 > Manage your Docker Swarm, Compose stacks, and Containers with a fancy, fast, and keyboard-centric Terminal User Interface.

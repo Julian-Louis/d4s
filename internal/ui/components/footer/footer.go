@@ -12,7 +12,7 @@ type FooterComponent struct {
 
 func NewFooterComponent() *FooterComponent {
 	f := tview.NewTextView()
-	f.SetDynamicColors(true).SetBackgroundColor(styles.ColorBg)
+	f.SetDynamicColors(true).SetTextColor(styles.ColorFooterFg).SetBackgroundColor(styles.ColorFooterBg)
 	return &FooterComponent{View: f}
 }
 
@@ -26,7 +26,7 @@ type FlashComponent struct {
 
 func NewFlashComponent() *FlashComponent {
 	f := tview.NewTextView()
-	f.SetTextColor(tcell.NewRGBColor(95, 135, 255)).SetBackgroundColor(styles.ColorBg) // Royal Blueish
+	f.SetDynamicColors(true).SetTextColor(tcell.NewRGBColor(95, 135, 255)).SetBackgroundColor(styles.ColorBg) // Royal Blueish
 	return &FlashComponent{View: f}
 }
 

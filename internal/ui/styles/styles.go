@@ -13,6 +13,11 @@ var (
 	ColorHeaderFg    = tcell.NewRGBColor(139, 233, 253) // Cyan
 	ColorTitle       = tcell.NewRGBColor(189, 147, 249) // Purple
 	
+	// Footer
+	ColorFooterBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray
+	ColorFooterFg    = tcell.NewRGBColor(248, 248, 242) // White
+
+	
 	// Table
 	ColorSelectBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray/Purple
 	ColorSelectFg    = tcell.ColorWhite
