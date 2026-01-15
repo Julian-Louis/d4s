@@ -122,7 +122,7 @@ func (i *TextInspector) updateContent() {
 					matchCount++
 					
 					// Highlight background 
-					return fmt.Sprintf(`["%s"][black:yellow]%s[""]`, id, s)
+					return fmt.Sprintf(`["%s"][orange]%s[""]`, id, s)
 				})
 			}
 		}

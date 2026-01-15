@@ -350,7 +350,7 @@ func (i *StatsInspector) draw() {
             if err == nil {
                 textContent = re.ReplaceAllStringFunc(textContent, func(s string) string {
                     if strings.HasPrefix(s, "[") { return s }
-                    return fmt.Sprintf("[black:yellow]%s[-]", s)
+                    return fmt.Sprintf(`[orange]%s[""]`, s)
                 })
             }
         }
