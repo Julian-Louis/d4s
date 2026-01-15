@@ -3,7 +3,7 @@
 </div>
 
 
-# D-Force (d4S) 🍊
+# D-Force (d4s) 🍊
 
 > **The K9s experience for Docker.**  
 > Manage your Docker Swarm, Compose stacks, and Containers with a fancy, fast, and keyboard-centric Terminal User Interface.
