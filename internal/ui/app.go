@@ -271,7 +271,7 @@ func (a *App) initUI() {
 
 	// 6. Layout
 	a.Layout = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(a.Header, 4, 1, false).
+		AddItem(a.Header, 6, 1, false).
 		AddItem(a.CmdLine, 3, 1, false). // Moved above table with border (3 lines: border + content + border)
 		AddItem(a.Pages, 0, 1, true).
 		AddItem(a.Flash, 1, 1, false).
