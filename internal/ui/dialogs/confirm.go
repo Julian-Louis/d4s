@@ -1,16 +1,22 @@
-package ui
+package dialogs
 
 import (
 	"fmt"
+
 	"github.com/gdamore/tcell/v2"
+	"github.com/jessym/d4s/internal/ui/common"
+	"github.com/jessym/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
 
 // ShowConfirmation shows a modal asking to type "Yes Please!" and allows forcing
-func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force bool)) {
+func ShowConfirmation(app common.AppController, actionName, item string, onConfirm func(force bool)) {
 	// Center the dialog
 	dialogWidth := 60
 	dialogHeight := 16 
+	
+	pages := app.GetPages()
+	tviewApp := app.GetTviewApp()
 
 	text := tview.NewTextView().
 		SetDynamicColors(true).
@@ -19,7 +25,7 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 	text.SetBackgroundColor(tcell.ColorBlack)
 	
 	input := tview.NewInputField().
-		SetFieldBackgroundColor(ColorSelectBg).
+		SetFieldBackgroundColor(styles.ColorSelectBg).
 		SetFieldTextColor(tcell.ColorRed).
 		SetLabel("Confirmation: ").
 		SetLabelColor(tcell.ColorWhite)
@@ -47,10 +53,6 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 		checkbox.SetText(fmt.Sprintf("%s%s Force (Tab to focus, Space to toggle)", color, prefix))
 	}
 
-	// Layout
-	// We need to handle focus switching between Input and Checkbox manually or use tview built-in focus chain?
-	// But `modal` is the page. `flex` contains items.
-	
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(text, 0, 1, false).
@@ -74,26 +76,18 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 
 	// Restore focus helper
 	closeModal := func() {
-		a.Pages.RemovePage("confirm")
-		page, _ := a.Pages.GetFrontPage()
-		if view, ok := a.Views[page]; ok {
-			a.TviewApp.SetFocus(view.Table)
-		}
+		pages.RemovePage("confirm")
+		// We assume we want to focus back on the table or pages
+		tviewApp.SetFocus(pages) 
 	}
 
-	// Input Handlers
-	
-	// We use a state variable to track focus because tview.Flex doesn't strictly enforce focus cycling the way we might want with 2 items where one is a TextView acting as Checkbox.
-	// Actually, we can make the TextView interactive if we give it InputCapture.
-	// But tview's SetFocus must be called.
-	
 	input.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
 			if input.GetText() == "Yes Please!" {
 				closeModal()
 				onConfirm(force)
 			} else {
-				a.Flash.SetText("[red]Confirmation mismatch. Action cancelled.")
+				app.SetFlashText("[red]Confirmation mismatch. Action cancelled.")
 				closeModal()
 			}
 		} else if key == tcell.KeyEsc {
@@ -101,7 +95,7 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 		} else if key == tcell.KeyTab {
 			// Switch to Checkbox
 			updateCheckbox(true)
-			a.TviewApp.SetFocus(checkbox)
+			tviewApp.SetFocus(checkbox)
 		}
 	})
 
@@ -109,7 +103,7 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 		if event.Key() == tcell.KeyTab {
 			// Switch back to Input
 			updateCheckbox(false)
-			a.TviewApp.SetFocus(input)
+			tviewApp.SetFocus(input)
 			return nil
 		}
 		if event.Rune() == ' ' {
@@ -122,7 +116,6 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 			return nil
 		}
 		if event.Key() == tcell.KeyEnter {
-			// Allow confirming from checkbox too if valid?
 			if input.GetText() == "Yes Please!" {
 				closeModal()
 				onConfirm(force)
@@ -132,6 +125,6 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func(force boo
 		return event
 	})
 
-	a.Pages.AddPage("confirm", modal, true, true)
-	a.TviewApp.SetFocus(input)
+	pages.AddPage("confirm", modal, true, true)
+	tviewApp.SetFocus(input)
 }

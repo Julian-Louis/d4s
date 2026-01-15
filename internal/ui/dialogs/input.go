@@ -1,18 +1,23 @@
-package ui
+package dialogs
 
 import (
 	"github.com/gdamore/tcell/v2"
+	"github.com/jessym/d4s/internal/ui/common"
+	"github.com/jessym/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
 
 // ShowInput shows a modal with an input field
-func (a *App) ShowInput(title, label, initialText string, onDone func(text string)) {
+func ShowInput(app common.AppController, title, label, initialText string, onDone func(text string)) {
 	// Center the dialog
 	dialogWidth := 50
 	dialogHeight := 7
 
+	pages := app.GetPages()
+	tviewApp := app.GetTviewApp()
+
 	input := tview.NewInputField().
-		SetFieldBackgroundColor(ColorSelectBg).
+		SetFieldBackgroundColor(styles.ColorSelectBg).
 		SetFieldTextColor(tcell.ColorWhite).
 		SetLabel(" " + label). // Padding label
 		SetLabelColor(tcell.ColorWhite).
@@ -20,7 +25,6 @@ func (a *App) ShowInput(title, label, initialText string, onDone func(text strin
 	input.SetBackgroundColor(tcell.ColorBlack)
 	
 	// Layout
-	// Use a container flex to center input vertically inside the border
 	content := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(nil, 1, 1, false). // Top padding
@@ -34,8 +38,8 @@ func (a *App) ShowInput(title, label, initialText string, onDone func(text strin
 		SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true).
 		SetTitle(" " + title + " ").
-		SetTitleColor(ColorTitle).
-		SetBorderColor(ColorTitle).
+		SetTitleColor(styles.ColorTitle).
+		SetBorderColor(styles.ColorTitle).
 		SetBackgroundColor(tcell.ColorBlack)
 
 	// Center on screen
@@ -49,11 +53,8 @@ func (a *App) ShowInput(title, label, initialText string, onDone func(text strin
 
 	// Restore focus helper
 	closeModal := func() {
-		a.Pages.RemovePage("input")
-		page, _ := a.Pages.GetFrontPage()
-		if view, ok := a.Views[page]; ok {
-			a.TviewApp.SetFocus(view.Table)
-		}
+		pages.RemovePage("input")
+		tviewApp.SetFocus(pages)
 	}
 
 	input.SetDoneFunc(func(key tcell.Key) {
@@ -76,7 +77,6 @@ func (a *App) ShowInput(title, label, initialText string, onDone func(text strin
 		return event
 	})
 
-	a.Pages.AddPage("input", modal, true, true)
-	a.TviewApp.SetFocus(input)
+	pages.AddPage("input", modal, true, true)
+	tviewApp.SetFocus(input)
 }
-
