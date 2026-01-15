@@ -316,108 +316,68 @@ func (i *StatsInspector) tick() {
 
 func (i *StatsInspector) draw() {
 	i.mu.RLock()
-	// Copy data needed for drawing to avoid holding lock during Marshalling/Regex
 	v := i.lastStats
 	filter := i.filter
 	mode := i.Mode
-	
-	// Graph data copies
-	// Slices are pointers, so we need to be careful. 
-	// However, drawDashboard reads them only. 
-	// But pushHistory modifies the underlying array or returns new slice.
-	// Since tick() has the lock when pushing, and we have the lock now,
-	// the slices are stable *for this moment*.
-	// But if we pass them to QueueUpdateDraw (async), they might change by the next tick!
-	// So we should capture the derived graph Values or Draw everything here?
-	
-	// Actually drawDashboard calls renderGraph which is fast.
-	// We can't lock around QueueUpdateDraw easily.
-	// Best pattern: Prepare everything off-thread, then just push string/rune updates.
-	
-	// For Text Mode:
-    var textContent string
-	var lastRow, lastColCount int
-	
-    if mode == "text" {
-        var buf bytes.Buffer
-        pretty, _ := json.MarshalIndent(v, "", "  ")
-        quick.Highlight(&buf, string(pretty), "json", "terminal256", "monokai")
-        textContent = tview.TranslateANSI(buf.String())
-
-        if filter != "" {
-            pattern := fmt.Sprintf(`(\[[^\]]*\])|(%s)`, regexp.QuoteMeta(filter))
-            re, err := regexp.Compile(pattern)
-            if err == nil {
-                textContent = re.ReplaceAllStringFunc(textContent, func(s string) string {
-                    if strings.HasPrefix(s, "[") { return s }
-                    return fmt.Sprintf(`[orange]%s[""]`, s)
-                })
-            }
-        }
-		
-		lastRow = i.lastRow
-		lastColCount = i.lastCol
-    }
-	
-	// For Graph Mode (Need to extract relevant current values + history)
-	// We'll just capture the *current* display values.
-	// The history slices are accessed in drawDashboard.
-	// Since QueueUpdateDraw runs on UI thread, and tick runs on Ticker,
-	// we have a race if drawDashboard reads history while tick modifies it.
-	
-	// Quick fix: Since history is only for display, we can make shallow copy?
-	// Or simply hold RLock inside the callback? NO, deadlock risk with tview internal locks.
-	
-	// Better: Pass Cloned Slices?
-	// History is small (120 floats). Copying is cheap.
-	cpuH := make([]float64, len(i.cpuHistory))
-	copy(cpuH, i.cpuHistory)
-	// ... (repeating for all is verbose)
-	
-	// Let's assume for now we just want to fix the "crash" on Text Search.
-	// The "crash" was Concurrent Map Read/Write on the History likely? 
-	// Or the Regex being compiled concurrently? 
-	// Actually the user said "crash on first letter of search".
-	// Search triggers ApplyFilter -> fetchAndDraw -> update History and filter.
-	// If fetchAndDraw was running, we had concurrent write to history.
-	
-	// With the Lock in tick(), checking only text usage for now.
+	lastRow := i.lastRow
+	lastCol := i.lastCol
 	i.mu.RUnlock()
 
-    i.App.GetTviewApp().QueueUpdateDraw(func() {
-        if mode == "text" {
-            // Persist scroll logic:
-            if i.TextView.GetText(false) != "" {
-				r, c := i.TextView.GetScrollOffset()
-				if r > 0 || c > 0 {
-					// We need to update the struct, but we are in callback.
-					// Locking here is tricky if tick() holds lock and waits for Draw?
-					// tick() calls QueueUpdateDraw and finishes. It doesn't wait.
-					// So it is safe to Lock i to update lastRow.
-					i.mu.Lock()
-					i.lastRow, i.lastCol = r, c
-					lastRow, lastColCount = r, c // Update local vars
-					i.mu.Unlock()
+	go func() {
+		if mode == "text" {
+			var buf bytes.Buffer
+			pretty, _ := json.MarshalIndent(v, "", "  ")
+			quick.Highlight(&buf, string(pretty), "json", "terminal256", "monokai")
+			textContent := tview.TranslateANSI(buf.String())
+
+			if filter != "" {
+				pattern := fmt.Sprintf(`(\[[^\]]*\])|(%s)`, regexp.QuoteMeta(filter))
+				re, err := regexp.Compile(pattern)
+				if err == nil {
+					textContent = re.ReplaceAllStringFunc(textContent, func(s string) string {
+						if strings.HasPrefix(s, "[") { return s }
+						return fmt.Sprintf(`[black:yellow]%s[-]`, s)
+					})
 				}
-            }
-            
-            i.TextView.SetText(textContent)
-            i.TextView.ScrollTo(lastRow, lastColCount)
-        } else {
-			// Restore values for dashboard
-			i.mu.RLock()
-			cpu := i.curCPU
-			mem := i.curMem
-			limit := i.curLimit
-			rx := i.curRx
-			tx := i.curTx
-			dread := i.curRead
-			dwrite := i.curWrite
-			i.mu.RUnlock()
+			}
 			
-			i.drawDashboard(cpu, mem, limit, rx, tx, dread, dwrite)
-        }
-    })
+			i.App.GetTviewApp().QueueUpdateDraw(func() {
+				if i.Mode != "text" { return }
+
+				// Persist scroll logic:
+				if i.TextView.GetText(false) != "" {
+					r, c := i.TextView.GetScrollOffset()
+					if r > 0 || c > 0 {
+						lastRow, lastCol = r, c
+						// Update struct for next time
+						i.mu.Lock()
+						i.lastRow, i.lastCol = r, c
+						i.mu.Unlock()
+					}
+				}
+				
+				i.TextView.SetText(textContent)
+				i.TextView.ScrollTo(lastRow, lastCol)
+				i.TextView.SetTitle(i.GetTitle())
+			})
+		} else {
+			i.App.GetTviewApp().QueueUpdateDraw(func() {
+				if i.Mode != "graph" { return }
+
+				i.mu.RLock()
+				cpu := i.curCPU
+				mem := i.curMem
+				limit := i.curLimit
+				rx := i.curRx
+				tx := i.curTx
+				dread := i.curRead
+				dwrite := i.curWrite
+				i.mu.RUnlock()
+				
+				i.drawDashboard(cpu, mem, limit, rx, tx, dread, dwrite)
+			})
+		}
+	}()
 }
 
 func pushHistory(hist []float64, val float64, max int) []float64 {
