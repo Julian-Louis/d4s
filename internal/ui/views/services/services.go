@@ -13,7 +13,36 @@ import (
 var Headers = []string{"ID", "NAME", "IMAGE", "MODE", "REPLICAS", "PORTS"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
-	return app.GetDocker().ListServices()
+	services, err := app.GetDocker().ListServices()
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by Node Scope
+	scope := app.GetActiveScope()
+	if scope != nil && scope.Type == "node" {
+		nodeID := scope.Value
+		var filtered []dao.Resource
+		
+		// We need to check which services have tasks on this node
+		// This requires an extra call to list tasks for this node
+		tasks, err := app.GetDocker().ListTasksForNode(nodeID)
+		if err == nil {
+			serviceIDs := make(map[string]bool)
+			for _, task := range tasks {
+				serviceIDs[task.ServiceID] = true
+			}
+			
+			for _, s := range services {
+				if serviceIDs[s.GetID()] {
+					filtered = append(filtered, s)
+				}
+			}
+			return filtered, nil
+		}
+	}
+	
+	return services, nil
 }
 
 func Remove(id string, force bool, app common.AppController) error {

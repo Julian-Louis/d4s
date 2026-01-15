@@ -386,6 +386,28 @@ func (a *App) PerformScale() {
 	a.UpdateShortcuts()
 }
 
+func (a *App) PerformScaleZero() {
+	page, _ := a.Pages.GetFrontPage()
+	if page != styles.TitleServices { return }
+	
+	view, ok := a.Views[page]
+	if !ok { return }
+	
+	ids, err := a.getTargetIDs(view)
+	if err != nil { return }
+	
+	// Confirmation
+	msg := fmt.Sprintf("You are about to scale %d services to 0 replicas.\nThis will make them unavailable.\nAre you sure?", len(ids))
+	
+	dialogs.ShowConfirmation(a, "NO REPLICA", msg, func(force bool) {
+		scaleAction := func(id string) error {
+			return a.Docker.ScaleService(id, 0)
+		}
+		a.PerformAction(scaleAction, "Scaling to 0")
+	})
+	a.UpdateShortcuts()
+}
+
 func (a *App) PerformShell() {
 	page, _ := a.Pages.GetFrontPage()
 	view, ok := a.Views[page]

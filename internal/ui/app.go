@@ -200,6 +200,12 @@ func (a *App) initUI() {
 				a.PerformScale()
 			}
 			return nil
+		case 'z': // No Replica
+			page, _ := a.Pages.GetFrontPage()
+			if page == styles.TitleServices {
+				a.PerformScaleZero()
+			}
+			return nil
 		case 'a': // Contextual Add (Create)
 			page, _ := a.Pages.GetFrontPage()
 			if page == styles.TitleVolumes {

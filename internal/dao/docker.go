@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/jessym/d4s/internal/dao/common"
 	"github.com/jessym/d4s/internal/dao/compose"
@@ -196,4 +197,8 @@ func (d *DockerClient) GetContainerLogs(id string, timestamps bool) (io.ReadClos
 
 func (d *DockerClient) GetServiceLogs(id string, timestamps bool) (io.ReadCloser, error) {
 	return d.Service.Logs(id, timestamps)
+}
+
+func (d *DockerClient) ListTasksForNode(nodeID string) ([]swarm.Task, error) {
+	return d.Node.ListTasks(nodeID)
 }

@@ -2,6 +2,7 @@ package node
 
 import (
 	dt "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/jessym/d4s/internal/dao/common"
@@ -55,4 +56,12 @@ func (m *Manager) List() ([]common.Resource, error) {
 func (m *Manager) Remove(id string, force bool) error {
 	// Force remove
 	return m.cli.NodeRemove(m.ctx, id, swarm.NodeRemoveOptions{Force: force})
+}
+
+func (m *Manager) ListTasks(nodeID string) ([]swarm.Task, error) {
+	filter := filters.NewArgs()
+	filter.Add("node", nodeID)
+	filter.Add("desired-state", "running")
+	
+	return m.cli.TaskList(m.ctx, dt.TaskListOptions{Filters: filter})
 }

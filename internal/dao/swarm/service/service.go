@@ -38,7 +38,7 @@ func (s Service) GetCells() []string {
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
-	list, err := m.cli.ServiceList(m.ctx, dt.ServiceListOptions{})
+	list, err := m.cli.ServiceList(m.ctx, dt.ServiceListOptions{Status: true})
 	if err != nil {
 		return nil, err
 	}
@@ -49,11 +49,22 @@ func (m *Manager) List() ([]common.Resource, error) {
 		replicas := ""
 		if s.Spec.Mode.Replicated != nil {
 			mode = "Replicated"
+			desired := uint64(0)
 			if s.Spec.Mode.Replicated.Replicas != nil {
-				replicas = fmt.Sprintf("%d", *s.Spec.Mode.Replicated.Replicas)
+				desired = *s.Spec.Mode.Replicated.Replicas
 			}
+			running := uint64(0)
+			if s.ServiceStatus != nil {
+				running = s.ServiceStatus.RunningTasks
+			}
+			replicas = fmt.Sprintf("%d/%d", running, desired)
 		} else if s.Spec.Mode.Global != nil {
 			mode = "Global"
+			running := uint64(0)
+			if s.ServiceStatus != nil {
+				running = s.ServiceStatus.RunningTasks
+			}
+			replicas = fmt.Sprintf("%d", running)
 		}
 
 		ports := ""

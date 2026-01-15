@@ -47,6 +47,7 @@ func (a *App) getCurrentShortcuts() []string {
 		shortcuts = []string{
 			common.FormatSCHeader("d", "Describe"),
 			common.FormatSCHeader("s", "Scale"),
+			common.FormatSCHeader("z", "No Replica"),
 			common.FormatSCHeader("Ctrl-d", "Delete"),
 		}
 	case styles.TitleNodes:
