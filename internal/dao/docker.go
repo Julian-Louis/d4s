@@ -32,25 +32,31 @@ type Resource interface {
 
 // HostStats represents basic host metrics
 type HostStats struct {
-	CPU      string
-	Mem      string
-	Name     string
-	Version  string
-	Context  string
+	CPU        string
+	CPUPercent string
+	Mem        string
+	MemPercent string
+	Name       string
+	Version    string
+	Context    string
+	User       string
+	D4SVersion string
 }
 
 // Container Model
 type Container struct {
-	ID      string
-	Names   string
-	Image   string
-	Status  string
-	State   string
-	Ports   string
-	Created string
-	Compose string
-	CPU     string
-	Mem     string
+	ID          string
+	Names       string
+	Image       string
+	Status      string
+	State       string
+	Age         string
+	Ports       string
+	Created     string
+	Compose     string
+	ProjectName string
+	CPU         string
+	Mem         string
 }
 
 func (c Container) GetID() string { return c.ID }
@@ -59,7 +65,7 @@ func (c Container) GetCells() []string {
 	if len(id) > 12 {
 		id = id[:12]
 	}
-	return []string{id, c.Names, c.Image, c.Status, c.Ports, c.CPU, c.Mem, c.Compose, c.Created}
+	return []string{id, c.Names, c.Image, c.Status, c.Age, c.Ports, c.CPU, c.Mem, c.Compose, c.Created}
 }
 
 // ComposeProject Model
@@ -193,18 +199,24 @@ func (d *DockerClient) ListContainers() ([]Resource, error) {
 		} else if proj, ok := c.Labels["com.docker.compose.project"]; ok {
 			compose = "📦 " + proj
 		}
+		
+		projectName := c.Labels["com.docker.compose.project"]
+
+		status, age := parseStatus(c.Status)
 
 		res = append(res, Container{
-			ID:      c.ID,
-			Names:   name,
-			Image:   c.Image,
-			Status:  c.Status,
-			State:   c.State,
-			Ports:   ports,
-			Created: formatTime(c.Created),
-			Compose: compose,
-			CPU:     "0%", // Mock until async stats implemented
-			Mem:     "0% ([#6272a4]0 B[-])", // Mock
+			ID:          c.ID,
+			Names:       name,
+			Image:       c.Image,
+			Status:      status,
+			Age:         age,
+			State:       c.State,
+			Ports:       ports,
+			Created:     formatTime(c.Created),
+			Compose:     compose,
+			ProjectName: projectName,
+			CPU:         "0%", // Mock until async stats implemented
+			Mem:         "0% ([#6272a4]0 B[-])", // Mock
 		})
 	}
 	return res, nil
@@ -465,11 +477,6 @@ func (d *DockerClient) GetContainerStats(id string) (string, error) {
 		return "", err
 	}
 	
-	// Pretty print the JSON stats for now as requested by user ("t for docker stats")
-	// For better UX, we could parse into struct and display table, 
-	// but user asked for "syntax coloring" on stats which often implies JSON or code view.
-	// Actually, "syntax coloring" might mean styled table. 
-	// But let's stick to JSON dump for accuracy first, or simple formatted string.
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return "", err
@@ -562,6 +569,76 @@ func shortenPath(path string) string {
 		return "~" + strings.TrimPrefix(path, home)
 	}
 	return path
+}
+
+func parseStatus(s string) (status, age string) {
+	s = strings.TrimSpace(s)
+	
+	if strings.HasPrefix(s, "Up") {
+		status = "Up"
+		rest := strings.TrimPrefix(s, "Up ")
+		age = shortenDuration(rest)
+	} else if strings.HasPrefix(s, "Exited") {
+		// "Exited (0) 5 minutes ago"
+		parts := strings.SplitN(s, ") ", 2)
+		if len(parts) == 2 {
+			status = parts[0] + ")"
+			age = shortenDuration(strings.TrimSuffix(parts[1], " ago"))
+		} else {
+			status = "Exited"
+			age = s
+		}
+	} else if strings.HasPrefix(s, "Created") {
+		status = "Created"
+		age = "-"
+	} else if strings.HasPrefix(s, "Paused") {
+		// "Up 2 hours (Paused)"
+		if strings.Contains(s, "(Paused)") {
+			status = "Paused"
+			rest := strings.TrimPrefix(s, "Up ")
+			rest = strings.TrimSuffix(rest, " (Paused)")
+			age = shortenDuration(rest)
+			return
+		}
+		status = "Paused"
+		age = "-"
+	} else {
+		status = s
+		age = "-"
+	}
+	return
+}
+
+func shortenDuration(d string) string {
+	d = strings.ToLower(d)
+	if strings.Contains(d, "less than") {
+		return "1s"
+	}
+	
+	// Clean up verbose words
+	d = strings.ReplaceAll(d, "about ", "")
+	d = strings.ReplaceAll(d, "an ", "1 ")
+	d = strings.ReplaceAll(d, "a ", "1 ")
+	d = strings.TrimSuffix(d, " ago")
+	
+	parts := strings.Fields(d)
+	if len(parts) >= 2 {
+		val := parts[0]
+		unit := parts[1]
+		
+		if val == "0" && strings.HasPrefix(unit, "second") {
+			return "1s"
+		}
+
+		if strings.HasPrefix(unit, "second") { return val + "s" }
+		if strings.HasPrefix(unit, "minute") { return val + "m" }
+		if strings.HasPrefix(unit, "hour") { return val + "h" }
+		if strings.HasPrefix(unit, "day") { return val + "d" }
+		if strings.HasPrefix(unit, "week") { return val + "w" }
+		if strings.HasPrefix(unit, "month") { return val + "mo" }
+		if strings.HasPrefix(unit, "year") { return val + "y" }
+	}
+	return d
 }
 
 func formatTime(ts int64) string {

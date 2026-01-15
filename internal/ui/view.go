@@ -17,7 +17,6 @@ type ResourceView struct {
 	Title    string
 	Data     []dao.Resource
 	Filter   string // User Filter (via /)
-	BaseFilter string // Mandatory Filter (Drill-down)
 	SortCol  int
 	SortAsc  bool
 	ColCount int // To avoid out of bound when switching views
@@ -118,9 +117,32 @@ func NewResourceView(app *App, title string) *ResourceView {
 		if v.Title == TitleCompose && event.Key() == tcell.KeyEnter {
 			row, _ := tv.GetSelection()
 			if row > 0 && row <= len(v.Data) {
-				projName := v.Data[row-1].GetID()
-				// Drill Down
-				v.App.DrillDown(TitleContainers, projName, "Compose: "+projName)
+				// We need more info than just ID (Project Name)
+				// We need the config file path for the label.
+				// dao.Resource interface doesn't give us easy access to extra fields without casting.
+				// v.Data[row-1] is the resource.
+				
+				res := v.Data[row-1]
+				projName := res.GetID()
+				
+				// Try to get config file path
+				label := projName
+				if cp, ok := res.(dao.ComposeProject); ok {
+					if cp.ConfigFiles != "" {
+						label = cp.ConfigFiles
+					}
+				}
+
+				// Set Scope
+				v.App.ActiveScope = &Scope{
+					Type:       "compose",
+					Value:      projName,
+					Label:      label,
+					OriginView: TitleCompose,
+				}
+				
+				// Switch to Containers
+				v.App.SwitchTo(TitleContainers)
 				return nil
 			}
 		}
@@ -177,20 +199,6 @@ func (v *ResourceView) Update(headers []string, data []dao.Resource) {
 		match := true
 		
 		cells := item.GetCells()
-
-		// Base Filter (Drill Down) - Exclusive
-		if v.BaseFilter != "" {
-			baseMatch := false
-			for _, cell := range cells {
-				if strings.Contains(strings.ToLower(cell), strings.ToLower(v.BaseFilter)) {
-					baseMatch = true
-					break
-				}
-			}
-			if !baseMatch {
-				continue // Skip if not matching base filter
-			}
-		}
 
 		// User Filter
 		if v.Filter != "" {
@@ -302,10 +310,6 @@ func (v *ResourceView) ClearActionState(id string) {
 
 func (v *ResourceView) SetFilter(filter string) {
 	v.Filter = filter
-}
-
-func (v *ResourceView) SetBaseFilter(filter string) {
-	v.BaseFilter = filter
 }
 
 // Helper for smart comparison

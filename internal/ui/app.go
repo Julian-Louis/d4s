@@ -37,6 +37,14 @@ type App struct {
 	
 	// State
 	ActiveFilter string
+	ActiveScope  *Scope
+}
+
+type Scope struct {
+	Type       string // e.g. "compose"
+	Value      string // e.g. "project-name"
+	Label      string // e.g. "~/docker-compose.yml"
+	OriginView string // View to return to on Esc
 }
 
 func NewApp() *App {
@@ -113,27 +121,11 @@ func (a *App) initUI() {
 			a.CmdLine.SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 			a.ActiveFilter = ""
 			
-			// Handle DrillDown Exit
-			page, _ := a.Pages.GetFrontPage()
-			if strings.HasPrefix(page, "drill-") {
-				a.Pages.RemovePage(page)
-				delete(a.Views, page) // Cleanup view
-				
-				// Focus previous view
-				newPage, _ := a.Pages.GetFrontPage()
-				if view, ok := a.Views[newPage]; ok {
-					a.TviewApp.SetFocus(view.Table)
-					a.RefreshCurrentView() // Refresh restored view
-					a.updateHeader()
-				}
-				return nil
-			}
-
 			a.RefreshCurrentView()
 			a.Flash.SetText("")
 			
 			// Restore focus
-			page, _ = a.Pages.GetFrontPage()
+			page, _ := a.Pages.GetFrontPage()
 			if view, ok := a.Views[page]; ok {
 				a.TviewApp.SetFocus(view.Table)
 			} else {
@@ -296,13 +288,27 @@ func (a *App) initUI() {
 			return nil
 		}
 
-		// Don't intercept global keys if an input modal is open
-		frontPage, _ := a.Pages.GetFrontPage()
-		if frontPage == "input" || frontPage == "confirm" {
-			return event
-		}
+	// Don't intercept global keys if an input modal is open
+	frontPage, _ := a.Pages.GetFrontPage()
+	if frontPage == "input" || frontPage == "confirm" {
+		return event
+	}
 
-		switch event.Rune() {
+	// Handle Esc to clear filter
+	if event.Key() == tcell.KeyEsc {
+		// Clear active filter if any
+		if a.ActiveFilter != "" {
+			a.ActiveFilter = ""
+			a.CmdLine.SetText("")
+			a.CmdLine.SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
+			a.RefreshCurrentView()
+			a.Flash.SetText("")
+			return nil
+		}
+		return event
+	}
+
+	switch event.Rune() {
 		case ':':
 			a.ActivateCmd(":")
 			return nil
@@ -1117,91 +1123,6 @@ func (a *App) InspectCurrentSelection() {
 	a.TviewApp.SetFocus(tv)
 }
 
-// DrillDown creates a temporary view with a base filter
-func (a *App) DrillDown(targetViewTitle, baseFilter, contextTitle string) {
-	// 1. Create temporary view ID
-	drillID := fmt.Sprintf("drill-%d", time.Now().UnixNano())
-	
-	// 2. Create new ResourceView
-	view := NewResourceView(a, targetViewTitle) // Use same logic as target
-	view.SetBaseFilter(baseFilter) // Mandatory filter
-	
-	// 3. Register View
-	a.Views[drillID] = view
-	a.Pages.AddPage(drillID, view.Table, true, true)
-	
-	// 4. Update Header/Context for this view
-	// We handle this in Update loop by checking if current page starts with "drill-"
-	
-	// 5. Trigger refresh immediately
-	// We need to fetch data for this view type
-	a.RefreshView(drillID, targetViewTitle) // Use targetTitle to know what to fetch
-	a.updateHeader()
-	a.TviewApp.SetFocus(view.Table)
-}
-
-func (a *App) RefreshView(viewID, viewType string) {
-	view, ok := a.Views[viewID]
-	if !ok { return }
-	
-	filter := view.Filter // Use view's own user filter
-
-	go func() {
-		var err error
-		var data []dao.Resource
-		var headers []string
-		
-		// Reuse logic from RefreshCurrentView based on viewType
-		// This duplicates switch case, ideally refactor "FetchData(viewType)"
-		switch viewType {
-		case TitleContainers:
-			headers = []string{"ID", "NAME", "IMAGE", "STATUS", "PORTS", "CPU", "MEM", "COMPOSE", "CREATED"}
-			data, err = a.Docker.ListContainers()
-		// ... other types if needed for drilldown
-		case TitleImages:
-			headers = []string{"ID", "TAGS", "SIZE", "CREATED"}
-			data, err = a.Docker.ListImages()
-		case TitleVolumes:
-			headers = []string{"NAME", "DRIVER", "MOUNTPOINT"}
-			data, err = a.Docker.ListVolumes()
-		case TitleNetworks:
-			headers = []string{"ID", "NAME", "DRIVER", "SCOPE"}
-			data, err = a.Docker.ListNetworks()
-		case TitleServices:
-			headers = []string{"ID", "NAME", "IMAGE", "MODE", "REPLICAS", "PORTS"}
-			data, err = a.Docker.ListServices()
-		case TitleNodes:
-			headers = []string{"ID", "HOSTNAME", "STATUS", "AVAIL", "ROLE", "VERSION"}
-			data, err = a.Docker.ListNodes()
-		}
-
-		a.TviewApp.QueueUpdateDraw(func() {
-			if err != nil {
-				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
-				return
-			}
-			
-			// Update Title with Context
-			title := fmt.Sprintf(" %s ", viewType)
-			if view.BaseFilter != "" {
-				title += fmt.Sprintf("[#8be9fd][%s] ", view.BaseFilter) // Show Drill Context
-			}
-			title += fmt.Sprintf("[white][%d] ", len(data)) 
-			
-			if filter != "" {
-				title += fmt.Sprintf(" [Filter: %s] ", filter)
-			}
-			
-			view.Table.SetTitle(title)
-			view.Table.SetTitleColor(ColorTitle)
-			view.Table.SetBorder(true)
-			view.Table.SetBorderColor(ColorTableBorder)
-			
-			view.Update(headers, data)
-		})
-	}()
-}
-
 func (a *App) RefreshCurrentView() {
 	// Read state safely
 	page, _ := a.Pages.GetFrontPage()
@@ -1209,17 +1130,7 @@ func (a *App) RefreshCurrentView() {
 		return
 	}
 	
-	// Check for DrillDown
-	if strings.HasPrefix(page, "drill-") {
-		// We need to know which type it is. 
-		// We can infer from Title? Or store metadata?
-		// Currently NewResourceView sets Title.
-		view, ok := a.Views[page]
-		if ok {
-			a.RefreshView(page, view.Title) // view.Title holds the Resource Type (e.g. TitleContainers)
-		}
-		return
-	}
+	// Check for DrillDown - REMOVED
 
 	view, ok := a.Views[page]
 	if !ok || view == nil {
@@ -1237,8 +1148,22 @@ func (a *App) RefreshCurrentView() {
 
 		switch page {
 		case TitleContainers:
-			headers = []string{"ID", "NAME", "IMAGE", "STATUS", "PORTS", "CPU", "MEM", "COMPOSE", "CREATED"}
+			headers = []string{"ID", "NAME", "IMAGE", "STATUS", "AGE", "PORTS", "CPU", "MEM", "COMPOSE", "CREATED"}
 			data, err = a.Docker.ListContainers()
+			
+			// Scope Filtering
+			if a.ActiveScope != nil && a.ActiveScope.Type == "compose" {
+				var scopedData []dao.Resource
+				for _, res := range data {
+					if c, ok := res.(dao.Container); ok {
+						if c.ProjectName == a.ActiveScope.Value {
+							scopedData = append(scopedData, res)
+						}
+					}
+				}
+				data = scopedData
+			}
+
 			shortcuts = fmt.Sprintf("%s %s %s %s %s %s %s %s %s %s",
 				formatSC("l", "Logs"),
 				formatSC("s", "Shell"),
@@ -1292,12 +1217,12 @@ func (a *App) RefreshCurrentView() {
 				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
 			} else {
 				// Update Table Title
-				title := fmt.Sprintf(" %s [white][%d] ", page, len(data))
+				title := fmt.Sprintf(" %s [white][%d] ", page, len(view.Data))
 				if filter != "" {
 					title += fmt.Sprintf(" [Filter: %s] ", filter)
 				}
-			view.Table.SetTitle(title)
-			view.Table.SetTitleColor(ColorTitle)
+				view.Table.SetTitle(title)
+				view.Table.SetTitleColor(ColorTitle)
 			view.Table.SetBorder(true)
 			view.Table.SetBorderColor(ColorTableBorder)
 			
@@ -1361,6 +1286,15 @@ func (a *App) updateHeader() {
 			// Col 1: View Info (Center)
 			page, _ := a.Pages.GetFrontPage()
 			title := fmt.Sprintf("[#f1fa8c::b]%s", strings.ToUpper(page))
+			
+			// Scope Display
+			if a.ActiveScope != nil {
+				title = fmt.Sprintf("[#f1fa8c::b]%s ([white]%s[#f1fa8c]) > %s", 
+					a.ActiveScope.Label, 
+					a.ActiveScope.Value, 
+					strings.ToUpper(page))
+			}
+			
 			if page == "" { title = "D4S" }
 			now := time.Now().Format("15:04:05")
 			
