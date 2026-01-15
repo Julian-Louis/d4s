@@ -16,14 +16,14 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func()) {
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow]%s[white]\n\nType [red]Yes Please![white] to confirm.", actionName, item))
-	text.SetBackgroundColor(ColorBg)
+	text.SetBackgroundColor(tcell.ColorBlack)
 	
 	input := tview.NewInputField().
 		SetFieldBackgroundColor(ColorSelectBg).
 		SetFieldTextColor(tcell.ColorRed).
 		SetLabel("Confirmation: ").
 		SetLabelColor(tcell.ColorWhite)
-	input.SetBackgroundColor(ColorBg)
+	input.SetBackgroundColor(tcell.ColorBlack)
 	
 	// Layout
 	flex := tview.NewFlex().
@@ -35,7 +35,7 @@ func (a *App) ShowConfirmation(actionName, item string, onConfirm func()) {
 		SetTitle(" Are you sure? ").
 		SetTitleColor(tcell.ColorRed).
 		SetBorderColor(tcell.ColorRed).
-		SetBackgroundColor(ColorBg)
+		SetBackgroundColor(tcell.ColorBlack)
 
 	// Center on screen
 	modal := tview.NewFlex().

@@ -14,27 +14,35 @@ func (a *App) ShowInput(title, label string, onDone func(text string)) {
 	input := tview.NewInputField().
 		SetFieldBackgroundColor(ColorSelectBg).
 		SetFieldTextColor(tcell.ColorWhite).
-		SetLabel(label).
+		SetLabel(" " + label). // Padding label
 		SetLabelColor(tcell.ColorWhite)
-	input.SetBackgroundColor(ColorBg)
+	input.SetBackgroundColor(tcell.ColorBlack)
 	
 	// Layout
-	flex := tview.NewFlex().
+	// Use a container flex to center input vertically inside the border
+	content := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(input, 3, 1, true)
+		AddItem(nil, 1, 1, false). // Top padding
+		AddItem(input, 1, 1, true). // Input line
+		AddItem(nil, 1, 1, false)  // Bottom padding
 	
-	flex.SetBorder(true).
+	content.SetBackgroundColor(tcell.ColorBlack)
+
+	// Main Frame with Border
+	frame := tview.NewFrame(content).
+		SetBorders(0, 0, 0, 0, 0, 0)
+	frame.SetBorder(true).
 		SetTitle(" " + title + " ").
 		SetTitleColor(ColorTitle).
 		SetBorderColor(ColorTitle).
-		SetBackgroundColor(ColorBg)
+		SetBackgroundColor(tcell.ColorBlack)
 
 	// Center on screen
 	modal := tview.NewFlex().
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(flex, dialogHeight, 1, true).
+			AddItem(frame, dialogHeight, 1, true).
 			AddItem(nil, 0, 1, false), dialogWidth, 1, true).
 		AddItem(nil, 0, 1, false)
 

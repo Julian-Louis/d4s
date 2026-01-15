@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -45,6 +46,7 @@ type Container struct {
 	State   string
 	Ports   string
 	Created string
+	Compose string
 	CPU     string
 	Mem     string
 }
@@ -55,7 +57,7 @@ func (c Container) GetCells() []string {
 	if len(id) > 12 {
 		id = id[:12]
 	}
-	return []string{id, c.Names, c.Image, c.Status, c.Created, c.Ports, c.CPU, c.Mem}
+	return []string{id, c.Names, c.Image, c.Status, c.Ports, c.CPU, c.Mem, c.Compose, c.Created}
 }
 
 // Image Model
@@ -141,6 +143,13 @@ func (d *DockerClient) ListContainers() ([]Resource, error) {
 			ports = fmt.Sprintf("%d->%d", c.Ports[0].PublicPort, c.Ports[0].PrivatePort)
 		}
 
+		compose := ""
+		if cf, ok := c.Labels["com.docker.compose.project.config_files"]; ok {
+			compose = "📄 " + shortenPath(cf)
+		} else if proj, ok := c.Labels["com.docker.compose.project"]; ok {
+			compose = "📦 " + proj
+		}
+
 		res = append(res, Container{
 			ID:      c.ID,
 			Names:   name,
@@ -149,6 +158,7 @@ func (d *DockerClient) ListContainers() ([]Resource, error) {
 			State:   c.State,
 			Ports:   ports,
 			Created: formatTime(c.Created),
+			Compose: compose,
 			CPU:     "0%", // Mock until async stats implemented
 			Mem:     "0%", // Mock
 		})
@@ -189,7 +199,7 @@ func (d *DockerClient) ListVolumes() ([]Resource, error) {
 		res = append(res, Volume{
 			Name:   v.Name,
 			Driver: v.Driver,
-			Mount:  v.Mountpoint,
+			Mount:  shortenPath(v.Mountpoint),
 		})
 	}
 	return res, nil
@@ -257,15 +267,23 @@ func (d *DockerClient) RemoveContainer(id string) error {
 	return d.cli.ContainerRemove(d.ctx, id, container.RemoveOptions{Force: true})
 }
 
-func (d *DockerClient) GetContainerLogs(id string) (io.ReadCloser, error) {
+func (d *DockerClient) GetContainerLogs(id string, timestamps bool) (io.ReadCloser, error) {
 	opts := container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,
-		Tail:       "100",
-		Timestamps: false,
+		Tail:       "500", // K9s default usually
+		Timestamps: timestamps,
 	}
 	return d.cli.ContainerLogs(d.ctx, id, opts)
+}
+
+func (d *DockerClient) HasTTY(id string) (bool, error) {
+	c, err := d.cli.ContainerInspect(d.ctx, id)
+	if err != nil {
+		return false, err
+	}
+	return c.Config.Tty, nil
 }
 
 // Image Actions
@@ -297,6 +315,11 @@ func (d *DockerClient) PruneVolumes() error {
 }
 
 // Network Actions
+func (d *DockerClient) CreateNetwork(name string) error {
+	_, err := d.cli.NetworkCreate(d.ctx, name, network.CreateOptions{})
+	return err
+}
+
 func (d *DockerClient) RemoveNetwork(id string) error {
 	return d.cli.NetworkRemove(d.ctx, id)
 }
@@ -307,6 +330,14 @@ func (d *DockerClient) PruneNetworks() error {
 }
 
 // Helpers
+func shortenPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" && strings.HasPrefix(path, home) {
+		return "~" + strings.TrimPrefix(path, home)
+	}
+	return path
+}
+
 func formatTime(ts int64) string {
 	t := time.Unix(ts, 0)
 	return t.Format("2006-01-02 15:04")

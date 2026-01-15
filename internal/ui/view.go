@@ -22,6 +22,7 @@ type ResourceView struct {
 	ColCount int // To avoid out of bound when switching views
 	SelectedIDs map[string]bool
 	ActionStates map[string]string // ID -> Action Name (e.g. "Stopping")
+	Headers  []string // Stored for rendering
 }
 
 func NewResourceView(app *App, title string) *ResourceView {
@@ -33,7 +34,8 @@ func NewResourceView(app *App, title string) *ResourceView {
 	
 	tv.SetBorder(false)
 	tv.SetBackgroundColor(ColorBg)
-	tv.SetSelectedStyle(tcell.StyleDefault.Foreground(ColorSelectFg).Background(ColorSelectBg))
+	// Disable default selected style to handle overlay manually
+	tv.SetSelectedStyle(tcell.StyleDefault)
 
 	v := &ResourceView{
 		Table:       tv,
@@ -44,6 +46,11 @@ func NewResourceView(app *App, title string) *ResourceView {
 		SelectedIDs: make(map[string]bool),
 		ActionStates: make(map[string]string),
 	}
+	
+	// Handle Selection Change for custom highlighting
+	tv.SetSelectionChangedFunc(func(row, col int) {
+		v.refreshStyles()
+	})
 
 	// Navigation shortcuts
 	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -61,12 +68,8 @@ func NewResourceView(app *App, title string) *ResourceView {
 				}
 				app.RefreshCurrentView()
 				return nil
-			case tcell.KeyUp: // ASC
-				v.SortAsc = true
-				app.RefreshCurrentView()
-				return nil
-			case tcell.KeyDown: // DESC
-				v.SortAsc = false
+			case tcell.KeyUp, tcell.KeyDown: // Toggle Sort Order
+				v.SortAsc = !v.SortAsc
 				app.RefreshCurrentView()
 				return nil
 			}
@@ -87,6 +90,10 @@ func NewResourceView(app *App, title string) *ResourceView {
 				// Force redraw to update selection style
 				app.RefreshCurrentView() 
 			}
+			return nil
+		case '+': // Toggle Sort Order
+			v.SortAsc = !v.SortAsc
+			app.RefreshCurrentView()
 			return nil
 		case '/':
 			app.ActivateCmd("/")
@@ -128,6 +135,7 @@ func NewResourceView(app *App, title string) *ResourceView {
 }
 
 func (v *ResourceView) Update(headers []string, data []dao.Resource) {
+	v.Headers = headers
 	v.ColCount = len(headers)
 	if v.SortCol >= v.ColCount {
 		v.SortCol = 0
@@ -175,10 +183,14 @@ func (v *ResourceView) Update(headers []string, data []dao.Resource) {
 	})
 
 	v.Data = filtered // Update view data with sorted/filtered list
+	v.renderAll()
+}
+
+func (v *ResourceView) renderAll() {
 	v.Table.Clear()
 
 	// 3. Set Headers with Indicators
-	for i, h := range headers {
+	for i, h := range v.Headers {
 		title := h
 		if i == v.SortCol {
 			if v.SortAsc {
@@ -203,90 +215,14 @@ func (v *ResourceView) Update(headers []string, data []dao.Resource) {
 	}
 
 	// 4. Set Data
-	for i, item := range filtered {
+	for i, item := range v.Data {
 		cells := item.GetCells()
 		rowIndex := i + 1
 		
-		id := item.GetID()
-		isSelected := v.SelectedIDs[id]
-		actionState := v.ActionStates[id]
-		isAction := actionState != ""
-		
 		for j, text := range cells {
-			color := ColorFg
-			displayText := text
-			bgColor := ColorBg
-			
-			if isSelected {
-				bgColor = tcell.NewRGBColor(80, 40, 60) // Pink Dark Background
-				color = ColorAccent // Pink Text
-			}
-			
-			if isAction {
-				bgColor = tcell.NewRGBColor(100, 60, 20) // Orange Dark Background
-				color = ColorLogo // Orange Text
-			}
-			
-			// Custom Column Styling
-			// Assuming common column layout or detecting based on content/header
-			headerName := ""
-			if j < len(headers) {
-				headerName = strings.ToUpper(headers[j])
-			}
-
-			// 1. ID Column - Dim Color
-			if headerName == "ID" {
-				if !isSelected && !isAction { color = ColorDim }
-			}
-
-			// 2. Status Column - Color & Emoji
-			if headerName == "STATUS" {
-				if isAction {
-					displayText = "🍊 " + actionState + "..."
-				} else {
-					lowerStatus := strings.ToLower(text)
-					if strings.Contains(lowerStatus, "up") || strings.Contains(lowerStatus, "running") || strings.Contains(lowerStatus, "healthy") {
-						if !isSelected && !isAction { color = ColorStatusGreen }
-						if !strings.Contains(text, "Up") { // Avoid double prefix if already formatted
-							displayText = "🟢 " + text
-						} else {
-							displayText = strings.Replace(text, "Up", "🟢 Up", 1)
-						}
-					} else if strings.Contains(lowerStatus, "exited") || strings.Contains(lowerStatus, "stop") {
-						if !isSelected && !isAction { color = ColorStatusGray }
-						displayText = "⚫ " + text
-					} else if strings.Contains(lowerStatus, "created") {
-						if !isSelected && !isAction { color = ColorStatusYellow }
-						displayText = "🟡 " + text
-					} else if strings.Contains(lowerStatus, "dead") || strings.Contains(lowerStatus, "error") {
-						if !isSelected && !isAction { color = ColorStatusRed }
-						displayText = "🔴 " + text
-					} else if strings.Contains(lowerStatus, "pause") {
-						if !isSelected && !isAction { color = ColorStatusYellow }
-						displayText = "⏸️ " + text
-					}
-				}
-			}
-
-			// 3. Size / Ports - Accent Color
-			if headerName == "SIZE" || headerName == "PORTS" {
-				if !isSelected && !isAction { color = ColorTitle } // Light Purple
-			}
-
-			// 3b. Mountpoint - Gray
-			if headerName == "MOUNTPOINT" {
-				if !isSelected && !isAction { color = ColorDim }
-			}
-			
-			// 4. Name / Image - White (Default)
-			if headerName == "NAME" {
-				if !isSelected && !isAction { color = tcell.ColorWhite }
-				// Bold for name
-				v.Table.SetCell(rowIndex, j, tview.NewTableCell(" "+displayText+" ").SetTextColor(color).SetBackgroundColor(bgColor).SetAttributes(tcell.AttrBold))
-				continue
-			}
-
-			v.Table.SetCell(rowIndex, j, tview.NewTableCell(" "+displayText+" ").SetTextColor(color).SetBackgroundColor(bgColor))
+			// Basic Cell creation - styles applied in refreshStyles
+			cell := tview.NewTableCell(" " + text + " ")
+			v.Table.SetCell(rowIndex, j, cell)
 		}
 	}
 	
@@ -299,6 +235,138 @@ func (v *ResourceView) Update(headers []string, data []dao.Resource) {
 		}
 	} else {
 		v.Table.Select(0, 0)
+	}
+	
+	v.refreshStyles()
+}
+
+func (v *ResourceView) refreshStyles() {
+	cursorRow, _ := v.Table.GetSelection()
+	
+	for i, item := range v.Data {
+		rowIndex := i + 1
+		id := item.GetID()
+		
+		isSelected := v.SelectedIDs[id]
+		actionState := v.ActionStates[id]
+		isAction := actionState != ""
+		isCursor := (rowIndex == cursorRow)
+		
+		// Determine Base Colors
+		var bgColor tcell.Color
+		var fgColor tcell.Color
+		
+		// Priority: Action > Selected > Normal
+		if isAction {
+			bgColor = tcell.NewRGBColor(100, 60, 20) // Orange Dark
+			fgColor = ColorLogo // Orange
+		} else if isSelected {
+			bgColor = tcell.NewRGBColor(80, 40, 60) // Pink Dark
+			fgColor = ColorAccent // Pink
+		} else {
+			bgColor = ColorBg
+			fgColor = ColorFg
+		}
+		
+		// Overlay Cursor
+		if isCursor {
+			if isSelected {
+				// Cursor + Selected = Lighter Pink
+				bgColor = tcell.NewRGBColor(140, 60, 100)
+				fgColor = tcell.ColorWhite
+			} else if isAction {
+				// Cursor + Action = Lighter Orange
+				bgColor = tcell.NewRGBColor(140, 80, 20)
+				fgColor = tcell.ColorWhite
+			} else {
+				// Normal Cursor
+				bgColor = ColorSelectBg
+				fgColor = ColorSelectFg
+			}
+		}
+
+		// Apply to all cells in row
+		cells := item.GetCells()
+		for j, text := range cells {
+			cell := v.Table.GetCell(rowIndex, j)
+			if cell == nil { continue }
+			
+			// Reset text first? No need, we overwrite text for status logic
+			displayText := text
+			
+			// Specific Column Logic (Status, Name, etc)
+			// Re-apply formatting logic here because we stripped it from renderAll
+			
+			headerName := ""
+			if j < len(v.Headers) {
+				headerName = strings.ToUpper(v.Headers[j])
+			}
+
+			colColor := fgColor // Default to determined FG
+			
+			// Override FG based on column type if NOT selected/action/cursor
+			// If isSelected/Action/Cursor, we enforce the theme color (Pink/Orange/Blue)
+			// EXCEPT for status emojis which we want to keep? 
+			// K9s keeps text color white on cursor usually.
+			
+			forceTheme := isSelected || isAction || isCursor
+
+			// 1. ID Column
+			if headerName == "ID" {
+				if !forceTheme { colColor = ColorDim }
+			}
+
+			// 2. Status Column
+			if headerName == "STATUS" {
+				if isAction {
+					displayText = "🟠 " + actionState + "..."
+				} else {
+					lowerStatus := strings.ToLower(text)
+					if strings.Contains(lowerStatus, "up") || strings.Contains(lowerStatus, "running") || strings.Contains(lowerStatus, "healthy") {
+						if !forceTheme { colColor = ColorStatusGreen }
+						if !strings.Contains(text, "Up") {
+							displayText = "🟢 " + text
+						} else {
+							displayText = strings.Replace(text, "Up", "🟢 Up", 1)
+						}
+					} else if strings.Contains(lowerStatus, "exited") || strings.Contains(lowerStatus, "stop") {
+						if !forceTheme { colColor = ColorStatusGray }
+						displayText = "⚫ " + text
+					} else if strings.Contains(lowerStatus, "created") {
+						if !forceTheme { colColor = ColorStatusYellow }
+						displayText = "🟡 " + text
+					} else if strings.Contains(lowerStatus, "dead") || strings.Contains(lowerStatus, "error") {
+						if !forceTheme { colColor = ColorStatusRed }
+						displayText = "🔴 " + text
+					} else if strings.Contains(lowerStatus, "pause") {
+						if !forceTheme { colColor = ColorStatusYellow }
+						displayText = "⏸️ " + text
+					}
+				}
+			}
+			
+			// 3. Size / Ports
+			if headerName == "SIZE" || headerName == "PORTS" {
+				if !forceTheme { colColor = ColorTitle }
+			}
+
+			// 3b. Mountpoint / Compose
+			if headerName == "MOUNTPOINT" || headerName == "COMPOSE" {
+				if !forceTheme { colColor = ColorDim }
+			}
+			
+			// 4. Name
+			if headerName == "NAME" {
+				if !forceTheme { colColor = tcell.ColorWhite }
+				cell.SetAttributes(tcell.AttrBold)
+			} else {
+				cell.SetAttributes(tcell.AttrNone)
+			}
+
+			cell.SetText(" " + displayText + " ")
+			cell.SetBackgroundColor(bgColor)
+			cell.SetTextColor(colColor)
+		}
 	}
 }
 
@@ -335,8 +403,16 @@ func compareValues(a, b string) bool {
 }
 
 func isSize(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return false
+	}
+	// Must start with digit
+	if s[0] < '0' || s[0] > '9' {
+		return false
+	}
 	s = strings.ToUpper(s)
-	return strings.Contains(s, "B") // Rough check
+	return strings.HasSuffix(s, "B")
 }
 
 func parseBytes(s string) float64 {
@@ -360,4 +436,132 @@ func parseBytes(s string) float64 {
 		return 0
 	}
 	return val * unit
+}
+
+func (v *ResourceView) refreshStyles() {
+	cursorRow, _ := v.Table.GetSelection()
+	
+	// Update Global Selection Style based on current row state
+	dataIdx := cursorRow - 1
+	isCursorSelected := false
+	isCursorAction := false
+	
+	if dataIdx >= 0 && dataIdx < len(v.Data) {
+		id := v.Data[dataIdx].GetID()
+		isCursorSelected = v.SelectedIDs[id]
+		isCursorAction = v.ActionStates[id] != ""
+	}
+
+	if isCursorAction {
+		// Cursor + Action = Lighter Orange
+		v.Table.SetSelectedStyle(tcell.StyleDefault.Background(tcell.NewRGBColor(140, 80, 20)).Foreground(tcell.ColorWhite))
+	} else if isCursorSelected {
+		// Cursor + Selected = Lighter Pink
+		v.Table.SetSelectedStyle(tcell.StyleDefault.Background(tcell.NewRGBColor(140, 60, 100)).Foreground(tcell.ColorWhite))
+	} else {
+		// Normal Cursor
+		v.Table.SetSelectedStyle(tcell.StyleDefault.Background(ColorSelectBg).Foreground(ColorSelectFg))
+	}
+
+	for i, item := range v.Data {
+		rowIndex := i + 1
+		id := item.GetID()
+		
+		isSelected := v.SelectedIDs[id]
+		actionState := v.ActionStates[id]
+		isAction := actionState != ""
+		
+		// Determine Base Colors
+		var bgColor tcell.Color
+		var fgColor tcell.Color
+		
+		// Priority: Action > Selected > Normal
+		if isAction {
+			bgColor = tcell.NewRGBColor(100, 60, 20) // Orange Dark
+			fgColor = ColorLogo // Orange
+		} else if isSelected {
+			bgColor = tcell.NewRGBColor(80, 40, 60) // Pink Dark
+			fgColor = ColorAccent // Pink
+		} else {
+			bgColor = ColorBg
+			fgColor = ColorFg
+		}
+		
+		// Apply to all cells in row
+		cells := item.GetCells()
+		for j, text := range cells {
+			cell := v.Table.GetCell(rowIndex, j)
+			if cell == nil { continue }
+			
+			displayText := text
+			
+			// Specific Column Logic (Status, Name, etc)
+			headerName := ""
+			if j < len(v.Headers) {
+				headerName = strings.ToUpper(v.Headers[j])
+			}
+
+			colColor := fgColor // Default to determined FG
+			
+			// Override FG based on column type if NOT selected/action
+			// If isSelected/Action, we enforce the theme color (Pink/Orange)
+			forceTheme := isSelected || isAction
+
+			// 1. ID Column
+			if headerName == "ID" {
+				if !forceTheme { colColor = ColorDim }
+			}
+
+			// 2. Status Column
+			if headerName == "STATUS" {
+				if isAction {
+					displayText = "🟠 " + actionState + "..."
+				} else {
+					lowerStatus := strings.ToLower(text)
+					if strings.Contains(lowerStatus, "up") || strings.Contains(lowerStatus, "running") || strings.Contains(lowerStatus, "healthy") {
+						if !forceTheme { colColor = ColorStatusGreen }
+						if !strings.Contains(text, "Up") {
+							displayText = "🟢 " + text
+						} else {
+							displayText = strings.Replace(text, "Up", "🟢 Up", 1)
+						}
+					} else if strings.Contains(lowerStatus, "exited") || strings.Contains(lowerStatus, "stop") {
+						if !forceTheme { colColor = ColorStatusGray }
+						displayText = "⚫ " + text
+					} else if strings.Contains(lowerStatus, "created") {
+						if !forceTheme { colColor = ColorStatusYellow }
+						displayText = "🟡 " + text
+					} else if strings.Contains(lowerStatus, "dead") || strings.Contains(lowerStatus, "error") {
+						if !forceTheme { colColor = ColorStatusRed }
+						displayText = "🔴 " + text
+					} else if strings.Contains(lowerStatus, "pause") {
+						if !forceTheme { colColor = ColorStatusYellow }
+						displayText = "⏸️ " + text
+					}
+				}
+			}
+			
+			// 3. Size / Ports
+			if headerName == "SIZE" || headerName == "PORTS" {
+				if !forceTheme { colColor = ColorTitle }
+			}
+
+			// 3b. Mountpoint / Compose
+			if headerName == "MOUNTPOINT" || headerName == "COMPOSE" {
+				if !forceTheme { colColor = ColorDim }
+			}
+			
+			// 4. Name
+			if headerName == "NAME" {
+				if !forceTheme { colColor = tcell.ColorWhite }
+				cell.SetAttributes(tcell.AttrBold)
+			} else {
+				cell.SetAttributes(tcell.AttrNone)
+			}
+
+			cell.SetText(" " + displayText + " ")
+			cell.SetBackgroundColor(bgColor)
+			cell.SetTextColor(colColor)
+		}
+	}
 }

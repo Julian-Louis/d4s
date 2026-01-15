@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jessym/d4s/internal/dao"
 	"github.com/rivo/tview"
@@ -98,13 +97,15 @@ func (a *App) initUI() {
 	// 3. Command Line & Flash & Footer
 	a.CmdLine = tview.NewInputField().
 		SetFieldBackgroundColor(ColorBg).
-		SetLabelColor(ColorLogo).
-		SetFieldTextColor(ColorFg)
+		SetLabelColor(tcell.ColorWhite). // Use white as base, dynamic in label string
+		SetFieldTextColor(ColorFg).
+		SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 	
 	// Handle Esc/Enter in Command Line
 	a.CmdLine.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEsc {
 			a.CmdLine.SetText("")
+			a.CmdLine.SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 			a.ActiveFilter = ""
 			a.RefreshCurrentView()
 			a.Flash.SetText("")
@@ -136,6 +137,7 @@ func (a *App) initUI() {
 			}
 			
 			a.CmdLine.SetText("")
+			a.CmdLine.SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 			// Restore focus
 			page, _ := a.Pages.GetFrontPage()
 			if view, ok := a.Views[page]; ok {
@@ -147,7 +149,7 @@ func (a *App) initUI() {
 	})
 
 	a.Flash = tview.NewTextView()
-	a.Flash.SetTextColor(ColorInfo).SetBackgroundColor(ColorBg)
+	a.Flash.SetTextColor(tcell.NewRGBColor(95, 135, 255)).SetBackgroundColor(ColorBg) // Royal Blueish
 	
 	a.Footer = tview.NewTextView()
 	a.Footer.SetDynamicColors(true).SetBackgroundColor(ColorBg)
@@ -207,6 +209,12 @@ func (a *App) initUI() {
 			return nil
 		}
 
+		// Don't intercept global keys if an input modal is open
+		frontPage, _ := a.Pages.GetFrontPage()
+		if frontPage == "input" || frontPage == "confirm" {
+			return event
+		}
+
 		switch event.Rune() {
 		case ':':
 			a.ActivateCmd(":")
@@ -220,13 +228,26 @@ func (a *App) initUI() {
 		case 'd':
 			a.InspectCurrentSelection()
 			return nil
-		case 'i': // Inspect alias (common in some tools)
-			a.InspectCurrentSelection()
+		case 'l':
+			page, _ := a.Pages.GetFrontPage()
+			if page == TitleContainers {
+				a.PerformLogs()
+			}
+			return nil
+		case 's':
+			page, _ := a.Pages.GetFrontPage()
+			if page == TitleContainers {
+				a.PerformShell()
+			}
 			return nil
 		case 'c': // Contextual Create
 			page, _ := a.Pages.GetFrontPage()
 			if page == TitleVolumes {
 				a.PerformCreateVolume()
+				return nil
+			}
+			if page == TitleNetworks {
+				a.PerformCreateNetwork()
 				return nil
 			}
 			return nil
@@ -308,6 +329,12 @@ func (a *App) PerformOpenVolume() {
 		return
 	}
 
+	// Check if path exists on host
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		a.Flash.SetText(fmt.Sprintf("[red]Path not found on Host: %s (Is it inside Docker VM?)", path))
+		return
+	}
+
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -330,6 +357,23 @@ func (a *App) PerformOpenVolume() {
 			}
 		})
 	}()
+}
+
+func (a *App) PerformCreateNetwork() {
+	a.ShowInput("Create Network", "Network Name: ", func(text string) {
+		a.Flash.SetText(fmt.Sprintf("[yellow]Creating network %s...", text))
+		go func() {
+			err := a.Docker.CreateNetwork(text)
+			a.TviewApp.QueueUpdateDraw(func() {
+				if err != nil {
+					a.Flash.SetText(fmt.Sprintf("[red]Error creating network: %v", err))
+				} else {
+					a.Flash.SetText(fmt.Sprintf("[green]Network %s created", text))
+					a.RefreshCurrentView()
+				}
+			})
+		}()
+	})
 }
 
 func (a *App) PerformCreateVolume() {
@@ -356,72 +400,19 @@ func (a *App) PerformLogs() {
 	id, err := a.getSelectedID(view)
 	if err != nil { return }
 
-	// UI Setup
-	tv := tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetChangedFunc(func() {
-			a.TviewApp.Draw()
-		})
-	tv.SetBorder(true).SetTitle(fmt.Sprintf(" Logs: %s (Autoscroll) ", id)).SetTitleColor(ColorTitle)
-	tv.SetBackgroundColor(ColorBg)
+	logView := NewLogView(a, id)
+	a.Pages.AddPage("logs", logView, true, true)
+	a.TviewApp.SetFocus(logView)
 
-	// Stream logs in background
-	go func() {
-		reader, err := a.Docker.GetContainerLogs(id)
-		if err != nil {
-			a.TviewApp.QueueUpdateDraw(func() {
-				tv.SetText(fmt.Sprintf("[red]Error fetching logs: %v", err))
-			})
-			return
-		}
-		defer reader.Close()
-
-		// Docker logs are multiplexed. We need stdcopy to demultiplex them if TTY was false.
-		// However, usually Inspect shows if TTY is enabled. Assuming false (multiplexed) is safer.
-		// We write everything to the TextView.
-		
-		// Custom writer to update UI
-		writer := &LogWriter{Tv: tv, App: a.TviewApp}
-		
-		// Blocking call
-		_, err = stdcopy.StdCopy(writer, writer, reader)
-		if err != nil {
-			// If stdcopy fails (maybe TTY was enabled?), try raw copy
-			// Reset reader? No, stream is consumed. We should have checked TTY.
-			// For this MVP, we ignore error if it's just format mismatch, but usually stdcopy handles it or returns specific error.
-			// Actually stdcopy returns error if it's not multiplexed.
-			// Let's just write raw if stdcopy fails? No, reader is consumed.
-			// In a robust app we check container.Config.Tty first.
-			// Let's assume most containers here are services (no TTY).
-		}
-	}()
-
-	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEsc {
-			a.Pages.RemovePage("logs")
-			a.TviewApp.SetFocus(view.Table)
-			return nil
-		}
-		return event
-	})
-
-	a.Pages.AddPage("logs", tv, true, true)
-	a.TviewApp.SetFocus(tv)
-}
-
-type LogWriter struct {
-	Tv  *tview.TextView
-	App *tview.Application
-}
-
-func (w *LogWriter) Write(p []byte) (n int, err error) {
-	text := string(p)
-	// We can add coloring here based on [INFO], [ERROR] etc.
-	w.App.QueueUpdateDraw(func() {
-		w.Tv.Write([]byte(text))
-	})
-	return len(p), nil
+	// Update Footer for Logs
+	shortcuts := formatSC("s", "AutoScroll") + 
+				 formatSC("w", "Wrap") + 
+				 formatSC("t", "Time") + 
+				 formatSC("f", "Full") + 
+				 formatSC("c", "Copy") + 
+				 formatSC("S+c", "Clear") + 
+				 formatSC("Esc", "Back")
+	a.Footer.SetText(shortcuts)
 }
 
 func (a *App) PerformShell() {
@@ -613,9 +604,9 @@ func (a *App) SwitchTo(viewName string) {
 }
 
 func (a *App) ActivateCmd(initial string) {
-	label := "CMD> "
+	label := "[#ffb86c::b]CMD> [-:-:-]" // Orange for Command
 	if strings.HasPrefix(initial, "/") {
-		label = "FILTER> "
+		label = "[#ffb86c::b]FILTER> [-:-:-]" // Orange for Filter
 	}
 	a.CmdLine.SetLabel(label)
 	a.CmdLine.SetText(initial)
@@ -701,8 +692,23 @@ func (a *App) InspectCurrentSelection() {
 			return nil
 		}
 		if event.Rune() == 'c' {
-			// Copy to clipboard using pbcopy (macOS)
-			cmd := exec.Command("pbcopy")
+			// Copy to clipboard (Cross-platform)
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("pbcopy")
+			case "windows":
+				cmd = exec.Command("clip")
+			default: // linux
+				// Try xclip, fallback to xsel? Just xclip for now
+				cmd = exec.Command("xclip", "-selection", "clipboard")
+			}
+
+			if cmd == nil {
+				a.Flash.SetText("[red]Clipboard not supported on this OS")
+				return nil
+			}
+
 			stdin, err := cmd.StdinPipe()
 			if err != nil {
 				a.Flash.SetText("[red]Copy error: stdin pipe")
@@ -713,7 +719,7 @@ func (a *App) InspectCurrentSelection() {
 				io.WriteString(stdin, content)
 			}()
 			if err := cmd.Run(); err != nil {
-				a.Flash.SetText(fmt.Sprintf("[red]Copy error: %v", err))
+				a.Flash.SetText(fmt.Sprintf("[red]Copy error: %v (install xclip/pbcopy?)", err))
 			} else {
 				a.Flash.SetText("[green]Copied to clipboard!")
 			}
@@ -729,7 +735,7 @@ func (a *App) InspectCurrentSelection() {
 func (a *App) RefreshCurrentView() {
 	// Read state safely
 	page, _ := a.Pages.GetFrontPage()
-	if page == "help" || page == "inspect" { // Don't refresh if modal is top
+	if page == "help" || page == "inspect" || page == "logs" { // Don't refresh if modal is top
 		return
 	}
 	
@@ -749,7 +755,7 @@ func (a *App) RefreshCurrentView() {
 
 		switch page {
 		case TitleContainers:
-			headers = []string{"ID", "NAME", "IMAGE", "STATUS", "CREATED", "PORTS", "CPU", "MEM"}
+			headers = []string{"ID", "NAME", "IMAGE", "STATUS", "PORTS", "CPU", "MEM", "COMPOSE", "CREATED"}
 			data, err = a.Docker.ListContainers()
 			shortcuts = fmt.Sprintf("%s %s %s %s %s %s",
 				formatSC("l", "Logs"),
@@ -765,12 +771,16 @@ func (a *App) RefreshCurrentView() {
 		case TitleVolumes:
 			headers = []string{"NAME", "DRIVER", "MOUNTPOINT"}
 			data, err = a.Docker.ListVolumes()
-			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune") + formatSC("c", "Create") + formatSC("i", "Inspect") + formatSC("o", "Open")
+			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune") + formatSC("c", "Create") + formatSC("d", "Inspect") + formatSC("o", "Open")
 		case TitleNetworks:
 			headers = []string{"ID", "NAME", "DRIVER", "SCOPE"}
 			data, err = a.Docker.ListNetworks()
-			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune")
+			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune") + formatSC("d", "Inspect") + formatSC("c", "Create")
 		}
+
+		// Append common shortcuts
+		shortcuts += commonShortcuts()
+
 
 		// Update UI on main thread
 		a.TviewApp.QueueUpdateDraw(func() {
@@ -784,7 +794,7 @@ func (a *App) RefreshCurrentView() {
 				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
 			} else {
 				// Update Table Title
-				title := fmt.Sprintf(" %s (%d) ", page, len(data))
+				title := fmt.Sprintf(" %s [white][%d] ", page, len(data))
 				if filter != "" {
 					title += fmt.Sprintf(" [Filter: %s] ", filter)
 				}
@@ -811,7 +821,11 @@ func (a *App) RefreshCurrentView() {
 
 // Helper for footer shortcuts
 func formatSC(key, action string) string {
-	return fmt.Sprintf("[#50fa7b::b]<%s>[#f8f8f2:-] %s ", key, action)
+	return fmt.Sprintf("[#5f87ff::b]<%s>[#f8f8f2:-] %s ", key, action)
+}
+
+func commonShortcuts() string {
+	return formatSC("S+Arrows", "Sort Col") + formatSC("+", "Order") + formatSC("/", "Filter")
 }
 
 func (a *App) updateHeader() {
@@ -827,15 +841,12 @@ func (a *App) updateHeader() {
 			a.Header.SetBackgroundColor(ColorBg) // Ensure no black block
 			
 			logo := []string{
-				"[#ffb86c]  ___  _  _  ___ ",
-				"[#ffb86c] |   \\| || |/ __|",
-				"[#ffb86c] | |) | __ |\\__ \\",
-				"[#ffb86c] |___/|_||_||___/",
+				"[#ffb86c]    ____  __ __ ____",
+				"[#ffb86c]   / __ \\/ // // __/",
+				"[#ffb86c]  / /_/ / // /_\\ \\ ",
+				"[#ffb86c] /_____/_//_/____/ ",
 			}
 			
-			// Only get page for title, safe enough
-			page, _ := a.Pages.GetFrontPage()
-
 			lines := []string{
 				fmt.Sprintf("[#8be9fd]Context: [white]%s", stats.Context),
 				fmt.Sprintf("[#8be9fd]Cluster: [white]%s (v%s)", stats.Name, stats.Version),
@@ -846,14 +857,11 @@ func (a *App) updateHeader() {
 			// Layout Header
 			// Col 0: Stats
 			for i, line := range lines {
-				a.Header.SetCell(i, 0, tview.NewTableCell(line).SetExpansion(1).SetBackgroundColor(ColorBg))
+				a.Header.SetCell(i, 0, tview.NewTableCell(line).SetBackgroundColor(ColorBg))
 			}
 			
-			// Col 1: View Name (Center)
-			a.Header.SetCell(0, 1, tview.NewTableCell(fmt.Sprintf("[#f1fa8c::b]%s", strings.ToUpper(page))).
-				SetAlign(tview.AlignCenter).
-				SetExpansion(1).
-				SetBackgroundColor(ColorBg))
+			// Col 1: Spacer (Expansion to push logo right)
+			a.Header.SetCell(0, 1, tview.NewTableCell("").SetExpansion(1).SetBackgroundColor(ColorBg))
 
 			// Col 2: Logo (Right)
 			for i, line := range logo {
