@@ -50,7 +50,7 @@ There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING
 [<img src="./docs/img/social/discord.png" width="64">](https://discord.gg/tS2NCEJTUN)
 
 ### Open an Issue
-[<img src="./docs/img/social/github.png" width="64">](https://github.com/obscreen/obscreen/issues/new/choose)
+[<img src="./docs/img/social/github.png" width="64">](https://github.com/jr-k/d4s/issues/new/choose)
 
 ## 🙏 Donate
 
