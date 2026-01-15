@@ -3,7 +3,7 @@
 </div>
 
 
-# D-Force (d4S) 🍊
+# D-Force (d4s) 🍊
 
 > **The K9s experience for Docker.**  
 > Manage your Docker Swarm, Compose stacks, and Containers with a fancy, fast, and keyboard-centric Terminal User Interface.
@@ -16,7 +16,7 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 - ⌨️ **Keyboard Centric**: Vim-like navigation (`j`/`k`), shortcuts for everything. No mouse needed.
 - 🐳 **Full Scope**: Supports **Containers**, **Images**, **Volumes**, **Networks**.
 - 📦 **Compose Aware**: Easily identify containers belonging to Compose stacks.
-- 🐝 **Swarm Aware**: Easily identify nodes and services.
+- 🐝 **Swarm Aware**: Supports **Nodes**, **Services**.
 - 🔍 **Powerful Search**: Instant fuzzy filtering (`/`) and command palette (`:`).
 - 📊 **Live Stats**: Real-time CPU/Mem usage for containers and host context.
 - 📜 **Advanced Logs**: Streaming logs with auto-scroll, timestamps toggle, and wrap mode.
