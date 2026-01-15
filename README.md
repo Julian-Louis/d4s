@@ -1,5 +1,5 @@
 <div align="left" width="100%">
-    <img src="./docs/img/d4s.png" width="357" alt="" />
+    <img src="./docs/img/d4s-unpadded.png" width="328" alt="" />
 </div>
 
 
