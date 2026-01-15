@@ -7,13 +7,15 @@ import (
 
 	"runtime/debug"
 
+	"io"
+	"os"
+	"os/exec"
+	"runtime"
+
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jessym/d4s/internal/dao"
 	"github.com/rivo/tview"
-	"github.com/docker/docker/pkg/stdcopy"
-	"os"
-	"os/exec"
-	"io"
 )
 
 type App struct {
@@ -227,7 +229,13 @@ func (a *App) initUI() {
 				a.PerformCreateVolume()
 				return nil
 			}
-			// Add Network create later?
+			return nil
+		case 'o': // Open Volume
+			page, _ := a.Pages.GetFrontPage()
+			if page == TitleVolumes {
+				a.PerformOpenVolume()
+				return nil
+			}
 			return nil
 		case 'r': // Restart
 			// Only Containers
@@ -265,6 +273,63 @@ func (a *App) initUI() {
 	// Don't call SwitchTo here to avoid triggering RefreshCurrentView before Run
 	a.Pages.SwitchToPage(TitleContainers)
 	a.updateHeader()
+}
+
+func (a *App) PerformOpenVolume() {
+	page, _ := a.Pages.GetFrontPage()
+	view, ok := a.Views[page]
+	if !ok { return }
+	
+	// Get Mountpoint from selected row
+	// Usually Mountpoint is the last column or index 2 in our view (NAME, DRIVER, MOUNTPOINT)
+	// We should get it from the Data object to be safe.
+	
+	row, _ := view.Table.GetSelection()
+	if row < 1 || row >= len(view.Data)+1 { return }
+	
+	dataIdx := row - 1
+	res := view.Data[dataIdx]
+	
+	// Cast to Volume to get Mountpoint
+	// Or we rely on GetCells() returning it at index 2?
+	// The resource is interface, we can check type or just use cells if consistent.
+	// But dao.Volume struct has Mount field.
+	
+	// Safer: Type assertion
+	vol, ok := res.(dao.Volume)
+	if !ok {
+		a.Flash.SetText("[red]Not a volume")
+		return
+	}
+	
+	path := vol.Mount
+	if path == "" {
+		a.Flash.SetText("[yellow]No mountpoint found")
+		return
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("explorer", path)
+	default: // linux, etc
+		cmd = exec.Command("xdg-open", path)
+	}
+
+	a.Flash.SetText(fmt.Sprintf("[yellow]Opening %s...", path))
+	
+	go func() {
+		err := cmd.Run()
+		a.TviewApp.QueueUpdateDraw(func() {
+			if err != nil {
+				a.Flash.SetText(fmt.Sprintf("[red]Open error: %v (Path: %s)", err, path))
+			} else {
+				a.Flash.SetText(fmt.Sprintf("[green]Opened %s", path))
+			}
+		})
+	}()
 }
 
 func (a *App) PerformCreateVolume() {
@@ -700,7 +765,7 @@ func (a *App) RefreshCurrentView() {
 		case TitleVolumes:
 			headers = []string{"NAME", "DRIVER", "MOUNTPOINT"}
 			data, err = a.Docker.ListVolumes()
-			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune") + formatSC("c", "Create") + formatSC("i", "Inspect")
+			shortcuts = formatSC("Ctrl-d", "Delete") + formatSC("p", "Prune") + formatSC("c", "Create") + formatSC("i", "Inspect") + formatSC("o", "Open")
 		case TitleNetworks:
 			headers = []string{"ID", "NAME", "DRIVER", "SCOPE"}
 			data, err = a.Docker.ListNetworks()
