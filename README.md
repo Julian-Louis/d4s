@@ -10,12 +10,13 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 - 🍊 **Fancy UI**: Modern TUI with Dracula theme, smooth navigation, and live updates.
 - ⌨️ **Keyboard Centric**: Vim-like navigation (`j`/`k`), shortcuts for everything. No mouse needed.
 - 🐳 **Full Scope**: Supports **Containers**, **Images**, **Volumes**, **Networks**.
+- 📦 **Compose Aware**: Easily identify containers belonging to Compose stacks.
+- 🐝 **Swarm Aware**: Easily identify nodes and services.
 - 🔍 **Powerful Search**: Instant fuzzy filtering (`/`) and command palette (`:`).
 - 📊 **Live Stats**: Real-time CPU/Mem usage for containers and host context.
 - 📜 **Advanced Logs**: Streaming logs with auto-scroll, timestamps toggle, and wrap mode.
 - 🐚 **Quick Shell**: Drop into a container shell (`s`) in a split second.
 - 🛠 **Contextual Actions**: Inspect, Restart, Stop, Prune, Delete with safety confirmations.
-- 📦 **Compose Aware**: Easily identify containers belonging to Compose stacks.
 
 ## 🚀 Installation
 
@@ -33,40 +34,6 @@ sudo mv d4s /usr/local/bin/
 ```bash
 go run cmd/d4s/main.go
 ```
-
-## 🎮 Shortcuts Cheat Sheet
-
-### Navigation
-- `Arrow Keys` or `j`/`k`: Navigate rows
-- `Enter`: Inspect resource
-- `Tab`: Switch views (implied via commands)
-- `>` / `<`: Change sort column
-- `+`:  Toggle Sort Order (ASC/DESC)
-- `/`: Filter view
-- `:`: Command Palette
-- `?`: Help / Shortcuts
-
-### Views
-- `:c` : **C**ontainers
-- `:i` : **I**mages
-- `:v` : **V**olumes
-- `:n` : **N**etworks
-
-### Container Actions
-- `l`: **L**ogs (Stream)
-- `s`: **S**hell (Exec /bin/sh)
-- `d`: **D**escribe / Inspect
-- `r`: **R**estart
-- `x`: Stop (eXit)
-- `Ctrl+d`: Delete
-
-### Log Viewer
-- `s`: Toggle Auto-**S**croll
-- `w`: Toggle **W**rap
-- `t`: Toggle **T**imestamps
-- `f`: Toggle **F**ullscreen (Border)
-- `Shift+c`: Clear logs
-- `Esc`: Back
 
 ## 🍊 Mascotte
 
