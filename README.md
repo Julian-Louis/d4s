@@ -46,7 +46,7 @@ go run cmd/d4s/main.go
     <img src="./docs/img/d4s-citrus.png" width="128 " alt="" />
 </div>
 
-Meet **Citrus**, our vitamin-packed helper ensuring your containers stay fresh and healthy! 🍊
+Meet ( •_•) **Citrus**, our vitamin-packed helper ensuring your containers stay fresh and healthy! 🍊
 
 ---
 *Built with Go & Tview. Inspired by the legendary K9s.*
