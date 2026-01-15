@@ -40,14 +40,19 @@ sudo mv d4s /usr/local/bin/
 go run cmd/d4s/main.go
 ```
 
-## Contributing
+## 💪 Contributing
 
 There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING.md) to see how you can help.
-If you want to chat with other contributors about topics outside the GitHub repo, join us on Discord:
 
-<a href="https://discord.gg/tS2NCEJTUN"><img src='./docs/social/discord.png' width='75'></a>
+## 🛟 Discussion / Need help ?
 
-## Donate
+### Join our Discord
+[<img src="./docs/img/social/discord.png" width="64">](https://discord.gg/tS2NCEJTUN)
+
+### Open an Issue
+[<img src="./docs/img/social/github.png" width="64">](https://github.com/obscreen/obscreen/issues/new/choose)
+
+## 🙏 Donate
 
 If you’d like to support the ongoing development of `d4s`, please consider [becoming a sponsor](https://github.com/sponsors/jr-k).
 
