@@ -18,6 +18,8 @@ import (
 // LogInspector implements Inspector for streaming logs
 type LogInspector struct {
 	App          common.AppController
+	Flex         *tview.Flex
+	HeaderView   *tview.TextView
 	TextView     *tview.TextView
 	ResourceID   string
 	Subject      string
@@ -58,22 +60,34 @@ func (i *LogInspector) GetID() string {
 }
 
 func (i *LogInspector) GetPrimitive() tview.Primitive {
-	return i.TextView
+	return i.Flex
 }
 
 func (i *LogInspector) GetTitle() string {
-	opts := []string{}
-	opts = append(opts, fmt.Sprintf("Since: %s", i.sinceLabel))
-	if i.AutoScroll { opts = append(opts, "AutoScroll") }
-	if i.Wrap { opts = append(opts, "Wrap") }
-	if i.Timestamps { opts = append(opts, "Time") }
-	
-	mode := "Log"
-	if len(opts) > 0 {
-		mode = strings.Join(opts, " ")
+	// Standard Title on first line
+	title := FormatInspectorTitle("Logs", i.Subject, "", i.filter, 0, 0)
+	// Remove empty mode brackets from standard title if needed
+	title = strings.ReplaceAll(title, " [[white][blue]]", "")
+	return title
+}
+
+func (i *LogInspector) GetStatus() string {
+	fmtStatus := func(label string, active bool) string {
+		c := "[gray]Off[-]"
+		if active {
+			c = "[green]On[-]"
+		}
+		return fmt.Sprintf("[#5f87ff]%s:[-]%s", label, c)
 	}
+
+	parts := []string{}
+	parts = append(parts, fmtStatus("Autoscroll", i.AutoScroll))
+	parts = append(parts, fmtStatus("FullScreen", false))
+	parts = append(parts, fmtStatus("Timestamps", i.Timestamps))
+	parts = append(parts, fmtStatus("Wrap", i.Wrap))
+	parts = append(parts, fmt.Sprintf("[#5f87ff]Since:[-][white]%s[-]", i.sinceLabel))
 	
-	return FormatInspectorTitle("Logs", i.Subject, mode, i.filter, 0, 0)
+	return strings.Join(parts, "     ")
 }
 
 func (i *LogInspector) GetShortcuts() []string {
@@ -115,6 +129,13 @@ func (i *LogInspector) GetShortcuts() []string {
 func (i *LogInspector) OnMount(app common.AppController) {
 	i.App = app
 	
+	i.HeaderView = tview.NewTextView().
+		SetDynamicColors(true).
+		SetTextAlign(tview.AlignCenter).
+		SetWrap(false).
+		SetText(i.GetStatus())
+	i.HeaderView.SetBackgroundColor(styles.ColorBg)
+
 	i.TextView = tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
@@ -125,11 +146,18 @@ func (i *LogInspector) OnMount(app common.AppController) {
 			i.TextView.ScrollToEnd()
 		}
 	})
+	i.TextView.SetBackgroundColor(styles.ColorBg)
 
-	i.TextView.SetBorder(true).
+	i.Flex = tview.NewFlex().
+		SetDirection(tview.FlexRow).
+		AddItem(i.HeaderView, 1, 1, false).
+		AddItem(i.TextView, 0, 1, true)
+
+	i.Flex.SetBorder(true).
 		SetTitle(i.GetTitle()).
 		SetTitleColor(styles.ColorTitle).
-		SetBackgroundColor(styles.ColorBg)
+		SetBackgroundColor(styles.ColorBg).
+		SetBorderPadding(0, 0, 1, 1)
 		
 	i.startStreaming()
 }
@@ -172,10 +200,8 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		i.Timestamps = !i.Timestamps
 		i.updateTitle()
 		i.startStreaming() // Restart with new setting
-	case 'C': // Shift+c usually
-		if event.Modifiers()&tcell.ModShift != 0 {
-			i.TextView.Clear()
-		}
+	case 'C': // Shift+c
+		i.TextView.Clear()
 	case '0':
 		i.setSince("tail")
 	case '1':
@@ -219,7 +245,12 @@ func (i *LogInspector) setSince(mode string) {
 }
 
 func (i *LogInspector) updateTitle() {
-	i.TextView.SetTitle(i.GetTitle())
+	if i.Flex != nil {
+		i.Flex.SetTitle(i.GetTitle())
+	}
+	if i.HeaderView != nil {
+		i.HeaderView.SetText(i.GetStatus())
+	}
 }
 
 func (i *LogInspector) startStreaming() {

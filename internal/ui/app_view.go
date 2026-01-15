@@ -61,9 +61,9 @@ func (a *App) RefreshCurrentView() {
 				
 				v.Update(headers, data)
 				
-				status := fmt.Sprintf("Viewing %s", page)
+				status := fmt.Sprintf("[black:blue] <%s> [-]", strings.ToLower(page))
 				if filter != "" {
-					status += fmt.Sprintf(" [orange]Filter: %s", filter)
+					status += fmt.Sprintf(`[black:orange] <filter: %s> [-]`, filter)
 				}
 				a.Flash.SetText(status)
 			}

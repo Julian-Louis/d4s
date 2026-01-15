@@ -93,9 +93,9 @@ func (i *StatsInspector) GetPrimitive() tview.Primitive {
 }
 
 func (i *StatsInspector) GetTitle() string {
-	mode := "📊 Graph"
+	mode := "graph"
 	if i.Mode == "text" {
-		mode = "🔖 JSON"
+		mode = "json"
 	}
 	id := i.ContainerID
 	if len(id) > 12 {

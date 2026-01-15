@@ -27,7 +27,7 @@ func FormatInspectorTitle(action, subject, mode, filter string, matchIndex, matc
 			idx = matchIndex + 1
 		}
 		
-		search = fmt.Sprintf(" [blue]<[orange]%s [%d:%d][blue]>", filter, idx, matchCount)
+		search = fmt.Sprintf(" [blue]</[orange]%s [-][[white]%d[-]:[white]%d[-]][blue]>", filter, idx, matchCount)
 	}
 
 	return fmt.Sprintf(" %s%s%s ", title, modeStr, search)

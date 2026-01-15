@@ -43,6 +43,7 @@ func NewLogView(app common.AppController, id, resourceType string) *LogView {
 	lv.SetTitle(fmt.Sprintf(" Logs: %s ", id))
 	lv.SetTitleColor(styles.ColorTitle)
 	lv.SetBackgroundColor(styles.ColorBg)
+	lv.SetBorderPadding(0, 0, 1, 1)
 
 	lv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEsc {
