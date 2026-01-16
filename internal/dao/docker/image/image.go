@@ -33,7 +33,7 @@ func (i Image) GetID() string { return i.ID }
 func (i Image) GetCells() []string {
 	containersStr := fmt.Sprintf("%d", i.Containers)
 	if i.Containers == 0 {
-		containersStr = fmt.Sprintf("[darkgray]-[-]")
+		containersStr = "[darkgray]-[-]"
 	}
 	return []string{i.ID[:12], i.Tags, i.Size, containersStr, i.Created}
 }
@@ -48,7 +48,15 @@ func (m *Manager) List() ([]common.Resource, error) {
 	for _, i := range list {
 		tags := "<none>"
 		if len(i.RepoTags) > 0 {
-			tags = i.RepoTags[0]
+			t := i.RepoTags[0]
+			parts := strings.SplitN(t, ":", 2)
+			if len(parts) == 2 {
+				// Image Name: [cyan]name[-]:[white]tag[-]
+				// But tview formatting...
+				tags = fmt.Sprintf("%s:[grey]%s[-]", parts[0], parts[1])
+			} else {
+				tags = t
+			}
 		}
 		res = append(res, Image{
 			ID:         strings.TrimPrefix(i.ID, "sha256:"),

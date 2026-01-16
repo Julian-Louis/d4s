@@ -315,6 +315,15 @@ func (v *ResourceView) renderAll() {
 		for j, text := range cells {
 			// Basic Cell creation - styles applied in refreshStyles
 			cell := tview.NewTableCell(" " + text + " ")
+			
+			// Align right for numeric columns (data)
+			if j < len(v.Headers) {
+				headerName := strings.ToUpper(v.Headers[j])
+				if headerName == "SIZE" || headerName == "REPLICAS" || headerName == "CPU" || headerName == "MEM" || headerName == "CONTAINERS" {
+					cell.SetAlign(tview.AlignRight)
+				}
+			}
+			
 			v.Table.SetCell(rowIndex, j, cell)
 		}
 	}

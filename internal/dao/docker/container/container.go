@@ -181,10 +181,16 @@ func (m *Manager) List() ([]common.Resource, error) {
 		// }
 		cmd = fmt.Sprintf("[gray]%s[-]", cmd)
 
+		imageName := c.Image
+		parts := strings.SplitN(imageName, ":", 2)
+		if len(parts) == 2 {
+			imageName = fmt.Sprintf("%s:[grey]%s[-]", parts[0], parts[1])
+		}
+
 		res[i] = Container{
 			ID:          c.ID,
 			Names:       name,
-			Image:       c.Image,
+			Image:       imageName,
 			Status:      status,
 			Age:         age,
 			State:       c.State,
