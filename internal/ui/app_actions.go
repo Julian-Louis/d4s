@@ -1,13 +1,11 @@
 package ui
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/components/view"
@@ -180,54 +178,73 @@ func (a *App) PerformCopy() {
 		return
 	}
 
-	var buffer bytes.Buffer
-
-	// Headers
-	var headers []string
-	for i := 0; i < view.Table.GetColumnCount(); i++ {
-		cell := view.Table.GetCell(0, i)
-		headers = append(headers, common.StripColorTags(strings.TrimSpace(cell.Text)))
-	}
-	buffer.WriteString(strings.Join(headers, "\t") + "\n")
-
-	// Data Rows (view.Data is already filtered/sorted)
-	for _, item := range view.Data {
-		cells := item.GetCells()
-		var line []string
-		for _, cell := range cells {
-			line = append(line, common.StripColorTags(cell))
-		}
-		buffer.WriteString(strings.Join(line, "\t") + "\n")
+	// 1. Check if we have a selection
+	row, _ := view.Table.GetSelection()
+	if row < 1 || row >= view.Table.GetRowCount() {
+		// Nothing selected? maybe header?
+		return
 	}
 
-	if err := a.CopyToClipboard(buffer.String()); err != nil {
-		a.Flash.SetText(fmt.Sprintf("[red]Copy error: %v", err))
+	// 2. Identify the resource
+	dataIndex := row - 1
+	if dataIndex < 0 || dataIndex >= len(view.Data) {
+		return
+	}
+	item := view.Data[dataIndex]
+
+	// 3. Identify the column
+	headerName := ""
+
+	// Use currently FOCUSED column if available
+	focusedCol := view.GetCurrentColumnFocused()
+	if focusedCol != "" {
+		headerName = focusedCol
 	} else {
-		a.Flash.SetText(fmt.Sprintf("[#000000:#50fa7b:b] <copied %d rows>[-]", len(view.Data)))
+		// Fallback to currently sorted column
+		sortedCol := view.GetCurrentColumnSorted()
+		if sortedCol != "" {
+			headerName = sortedCol
+		} else {
+			// Fallback to default column defined by the resource
+			headerName = item.GetDefaultSortColumn()
+		}
+	}
+
+	// 4. Get the specific value via the abstraction
+	value := item.GetColumnValue(headerName)
+	if value == "" {
+		// Fallback to cell text if abstraction returns empty (or not implemented for that column)
+		// Since we want the value of the SORTED column, we must find its index
+		colIndex := -1
+		for i, h := range view.Headers {
+			if strings.EqualFold(h, headerName) {
+				colIndex = i
+				break
+			}
+		}
+
+		if colIndex >= 0 {
+			cell := view.Table.GetCell(row, colIndex)
+			value = common.StripColorTags(strings.TrimSpace(cell.Text))
+		}
+	} else {
+		// Strip tags just in case raw value has them
+		value = common.StripColorTags(value)
+	}
+
+	// 5. Copy
+	if err := a.CopyToClipboard(value); err != nil {
+		a.AppendFlash(fmt.Sprintf("[red]Copy error: %v", err))
+	} else {
+		preview := value
+		if len(preview) > 20 {
+			preview = preview[:20] + "..."
+		}
+		a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <copied: %s>[-]", preview))
 	}
 	a.UpdateShortcuts()
 }
 
 func (a *App) CopyToClipboard(text string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-	case "linux":
-		// Try xclip first, then xsel
-		if _, err := exec.LookPath("xclip"); err == nil {
-			cmd = exec.Command("xclip", "-selection", "clipboard")
-		} else if _, err := exec.LookPath("xsel"); err == nil {
-			cmd = exec.Command("xsel", "--clipboard", "--input")
-		} else {
-			return fmt.Errorf("no clipboard tool found (install xclip or xsel)")
-		}
-	case "windows":
-		cmd = exec.Command("clip")
-	default:
-		return fmt.Errorf("unsupported OS")
-	}
-
-	cmd.Stdin = strings.NewReader(text)
-	return cmd.Run()
+	return clipboard.WriteAll(text)
 }

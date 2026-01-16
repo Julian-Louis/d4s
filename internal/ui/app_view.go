@@ -74,19 +74,23 @@ func (a *App) RefreshCurrentView() {
 						if i == len(scopes)-1 {
 							color = "orange"
 						}
+						firstChar := ""
+						if i > 0 {
+							firstChar = " "
+						}
 						// l'espace entre les éléments doit toujours être noir sur noir
-						status += fmt.Sprintf(" [#000000:%s:b] <%s> ", color, strings.ToLower(s))
+						status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
 						if i < len(scopes)-1 {
-							status += "[#000000:#000000]" // black fg, black bg for space
+							status += "[black:black]" // black fg, black bg for space
 						}
 					}
 					status += "[-:-:-]"
 				} else {
-					status = fmt.Sprintf(" [#000000:orange:b] <%s> [-:-:-]", strings.ToLower(page))
+					status = fmt.Sprintf(" [black:orange] <%s> [-:-]", strings.ToLower(page))
 				}
 
 				if filter != "" {
-					status += fmt.Sprintf(` [#000000:#bd93f9:b] <filter: [::-]%s[::b]> [-]`, filter)
+					status += fmt.Sprintf(` [black:#bd93f9] <filter: %s> [-]`, filter)
 				}
 				a.Flash.SetText(status)
 			}

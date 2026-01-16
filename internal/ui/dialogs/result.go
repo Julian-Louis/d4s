@@ -20,9 +20,9 @@ func ShowResultModal(app common.AppController, action string, successCount int, 
 		SetText(text).
 		SetTextAlign(tview.AlignLeft).
 		SetScrollable(true)
-	tv.SetBackgroundColor(tcell.ColorBlack)
+	tv.SetBackgroundColor(styles.ColorBlack)
 	
-	tv.SetBorder(true).SetTitle(" Action Report ").SetTitleColor(styles.ColorError).SetBackgroundColor(tcell.ColorBlack)
+	tv.SetBorder(true).SetTitle(" Action Report ").SetTitleColor(styles.ColorError).SetBackgroundColor(styles.ColorBlack)
 	
 	// Modal Layout
 	modalWidth := 60

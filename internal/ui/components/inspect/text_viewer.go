@@ -3,12 +3,10 @@ package inspect
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
-	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/alecthomas/chroma/v2/quick"
+	"github.com/atotto/clipboard"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
@@ -168,27 +166,10 @@ func (t *TextViewer) highlightContent(content, lang string) string {
 }
 
 func (t *TextViewer) copyToClipboard() {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-	case "windows":
-		cmd = exec.Command("clip")
-	default: // linux
-		cmd = exec.Command("xclip", "-selection", "clipboard")
-	}
-
-	if cmd == nil {
-		t.App.SetFlashText("[red]Clipboard not supported on this OS")
-		return
-	}
-
-	cmd.Stdin = strings.NewReader(t.content)
-
-	if err := cmd.Run(); err != nil {
+	if err := clipboard.WriteAll(t.content); err != nil {
 		t.App.SetFlashText(fmt.Sprintf("[red]Copy error: %v", err))
 	} else {
-		t.App.SetFlashText(fmt.Sprintf("[#000000:#50fa7b:b] <copied %d bytes>[-]", len(t.content)))
+		t.App.SetFlashText(fmt.Sprintf(" [black:#50fa7b] <copied: %d bytes>[-] ", len(t.content)))
 	}
 }
 

@@ -39,7 +39,35 @@ func (n Network) GetCells() []string {
 }
 
 func (n Network) GetStatusColor() (tcell.Color, tcell.Color) {
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (n Network) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "id":
+		return n.ID
+	case "name":
+		return n.Name
+	case "driver":
+		return n.Driver
+	case "scope":
+		return n.Scope
+	case "created":
+		return n.Created
+	case "internal":
+		return n.Internal
+	case "subnet":
+		return n.Subnet
+	}
+	return ""
+}
+
+func (n Network) GetDefaultColumn() string {
+	return "Name"
+}
+
+func (n Network) GetDefaultSortColumn() string {
+	return "Name"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

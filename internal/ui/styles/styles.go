@@ -5,11 +5,11 @@ import "github.com/gdamore/tcell/v2"
 // Indigo / Dracula-like / K9s Color Palette (Restored)
 var (
 	// Main Background (Indigo/Dark Blue)
-	ColorBg          = tcell.NewRGBColor(0,0,0) // Dark Indigo
+	ColorBg          = tcell.Color16 // Dark Indigo
 	ColorFg          = tcell.ColorWhite
 	ColorTableBorder = tcell.NewRGBColor(137, 206, 250) // Blue
 
-	ColorBlack = tcell.NewRGBColor(0,0,0)
+	ColorBlack = tcell.Color16
 	ColorWhite = tcell.NewRGBColor(255, 255, 255)
 
 	ColorHeader = tcell.NewRGBColor(255, 255, 255) // White
@@ -25,7 +25,7 @@ var (
 
 	// Flash
 	ColorFlashFg 	 = tcell.NewRGBColor(95, 135, 255) // Royal Blueish
-	ColorFlashBg 	 = tcell.NewRGBColor(0,0,0) // Dark Indigo
+	ColorFlashBg 	 = tcell.Color16 // Dark Indigo
 	
 	// Table
 	ColorSelectBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray
