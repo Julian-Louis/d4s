@@ -25,7 +25,7 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 
 ## 🚀 Installation
 
-### `macOS / Linux (Homebrew)`
+### `MacOS / Linux (Homebrew)`
 ```bash
 brew tap jr-k/d4s
 brew install d4s
