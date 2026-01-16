@@ -188,7 +188,7 @@ func (t *TextViewer) copyToClipboard() {
 	if err := cmd.Run(); err != nil {
 		t.App.SetFlashText(fmt.Sprintf("[red]Copy error: %v", err))
 	} else {
-		t.App.SetFlashText(fmt.Sprintf("[green]Copied %d bytes to clipboard!", len(t.content)))
+		t.App.SetFlashText(fmt.Sprintf("[#000000:#50fa7b:b] <copied %d bytes>[-]", len(t.content)))
 	}
 }
 

@@ -64,9 +64,9 @@ func (a *App) RefreshCurrentView() {
 				v.Update(headers, data)
 				
 				// Only update flash if not error
-				status := fmt.Sprintf("[black:blue] <%s> [-]", strings.ToLower(page))
+				status := fmt.Sprintf("[#000000:blue] <%s> [-]", strings.ToLower(page))
 				if filter != "" {
-					status += fmt.Sprintf(`[black:orange] <filter: %s> [-]`, filter)
+					status += fmt.Sprintf(`[#000000:orange] <filter: %s> [-]`, filter)
 				}
 				a.Flash.SetText(status)
 			}

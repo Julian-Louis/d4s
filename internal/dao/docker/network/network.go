@@ -1,6 +1,9 @@
 package network
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -19,16 +22,18 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 
 // Network Model
 type Network struct {
-	ID      string
-	Name    string
-	Driver  string
-	Scope   string
-	Created string
+	ID       string
+	Name     string
+	Driver   string
+	Scope    string
+	Created  string
+	Internal string
+	Subnet   string
 }
 
 func (n Network) GetID() string { return n.ID }
 func (n Network) GetCells() []string {
-	return []string{n.ID[:12], n.Name, n.Driver, n.Scope, n.Created}
+	return []string{n.ID[:12], n.Name, n.Driver, n.Scope, n.Created, n.Internal, n.Subnet}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -39,12 +44,29 @@ func (m *Manager) List() ([]common.Resource, error) {
 
 	var res []common.Resource
 	for _, n := range list {
+		internal := "[gray]No[-]"
+		if n.Internal {
+			internal = "[green]Yes[-]"
+		}
+		var subnets []string
+		for _, conf := range n.IPAM.Config {
+			if conf.Subnet != "" {
+				s := conf.Subnet
+				if parts := strings.Split(s, "/"); len(parts) == 2 {
+					s = fmt.Sprintf("%s[gray]/%s[-]", parts[0], parts[1])
+				}
+				subnets = append(subnets, s)
+			}
+		}
+
 		res = append(res, Network{
-			ID:      n.ID,
-			Name:    n.Name,
-			Driver:  n.Driver,
-			Scope:   n.Scope,
-			Created: common.FormatTime(n.Created.Unix()),
+			ID:       n.ID,
+			Name:     n.Name,
+			Driver:   n.Driver,
+			Scope:    n.Scope,
+			Created:  common.FormatTime(n.Created.Unix()),
+			Internal: internal,
+			Subnet:   strings.Join(subnets, ","),
 		})
 	}
 	return res, nil

@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/jr-k/d4s/internal/buildinfo"
 	"golang.org/x/net/context"
 )
 
@@ -62,7 +63,7 @@ func GetHostStats(cli *client.Client, ctx context.Context) (HostStats, error) {
 		Context:    "default",
 		User:       user,
 		Hostname:   hostname,
-		D4SVersion: "1.0.0",
+		D4SVersion: buildinfo.Version,
 	}, nil
 }
 

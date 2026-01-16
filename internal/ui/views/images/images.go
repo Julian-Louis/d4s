@@ -11,7 +11,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/dialogs"
 )
 
-var Headers = []string{"ID", "TAGS", "SIZE", "CREATED"}
+var Headers = []string{"ID", "TAGS", "SIZE", "CONTAINERS", "CREATED"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	return app.GetDocker().ListImages()

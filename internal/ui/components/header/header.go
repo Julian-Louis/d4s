@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jr-k/d4s/internal/dao"
+	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
@@ -40,16 +41,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 
 	h.View.Clear()
 	h.View.SetBackgroundColor(styles.ColorBg) // Ensure no black block
-	
-	logo := []string{
-		" [#ffb86c]██████╗   ██╗  ██╗   █████╗ ",
-		" [#ffb86c]██╔══██╗  ██║  ██║  ██╔═══╝ ",
-		" [#ffb86c]██║  ██║  ███████║  █████╗ ",
-		" [#ffb86c]██║  ██║       ██║       ██╗",
-		" [#ffb86c]██████╔╝       ██║  ██████╔╝",
-		" [#ffb86c]╚═════╝        ╚═╝  ╚═════╝ ",
-	}
-	
+
 	// Build CPU display with cores and percentage
 	cpuDisplay := fmt.Sprintf("%s cores", stats.CPU)
 	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "..." {
@@ -70,7 +62,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 		fmt.Sprintf("[#8be9fd]Host:    [white]%s", stats.Hostname),
 		fmt.Sprintf("[#8be9fd]D4s Rev: [white]v%s", stats.D4SVersion),
 		fmt.Sprintf("[#8be9fd]User:    [white]%s", stats.User),
-		fmt.Sprintf("[#8be9fd]Engine:  [white]%s [dim](v%s)", stats.Name, stats.Version),
+		fmt.Sprintf("[#8be9fd]Engine:  [white]%s [dim](%s)", stats.Name, stats.Version),
 		fmt.Sprintf("[#8be9fd]CPU:     [white]%s", cpuDisplay),
 		fmt.Sprintf("[#8be9fd]Mem:     [white]%s", memDisplay),
 	}
@@ -194,7 +186,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	colIndex++
 
 	// Right Column: Logo
-	for i, line := range logo {
+	for i, line := range common.GetLogo() {
 		cell := tview.NewTableCell(line).
 			SetAlign(tview.AlignLeft).
 			SetBackgroundColor(styles.ColorBg).

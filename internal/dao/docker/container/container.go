@@ -52,6 +52,8 @@ type Container struct {
 	ProjectName string
 	CPU         string
 	Mem         string
+	IP          string
+	Cmd         string
 }
 
 func (c Container) GetID() string { return c.ID }
@@ -60,7 +62,7 @@ func (c Container) GetCells() []string {
 	if len(id) > 12 {
 		id = id[:12]
 	}
-	return []string{id, c.Names, c.Image, c.Status, c.Age, c.Ports, c.CPU, c.Mem, c.Compose, c.Created}
+	return []string{id, c.Names, c.Image, c.IP, c.Status, c.Age, c.Ports, c.CPU, c.Mem, c.Compose, c.Cmd, c.Created}
 }
 
 func (m *Manager) updateStats(containers []types.Container) {
@@ -163,6 +165,22 @@ func (m *Manager) List() ([]common.Resource, error) {
 			m.statsMutex.RUnlock()
 		}
 
+		ip := ""
+		if c.NetworkSettings != nil {
+			for _, n := range c.NetworkSettings.Networks {
+				if n.IPAddress != "" {
+					ip = n.IPAddress
+					break
+				}
+			}
+		}
+
+		cmd := c.Command
+		// if len(cmd) > 20 {
+		// 	cmd = cmd[:20] + "..."
+		// }
+		cmd = fmt.Sprintf("[gray]%s[-]", cmd)
+
 		res[i] = Container{
 			ID:          c.ID,
 			Names:       name,
@@ -176,6 +194,8 @@ func (m *Manager) List() ([]common.Resource, error) {
 			ProjectName: projectName,
 			CPU:         cpuStr,
 			Mem:         memStr,
+			IP:          ip,
+			Cmd:         cmd,
 		}
 	}
 	return res, nil

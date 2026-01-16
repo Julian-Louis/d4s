@@ -300,7 +300,7 @@ func (v *ResourceView) renderAll() {
 
 		// Align Right for numeric columns
 		headerName := strings.ToUpper(h)
-		if headerName == "SIZE" || headerName == "REPLICAS" || headerName == "CPU" || headerName == "MEM" {
+		if headerName == "SIZE" || headerName == "REPLICAS" || headerName == "CPU" || headerName == "MEM" || headerName == "CONTAINERS" {
 			cell.SetAlign(tview.AlignRight)
 		}
 

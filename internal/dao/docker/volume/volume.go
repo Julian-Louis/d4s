@@ -27,11 +27,12 @@ type Volume struct {
 	Mount   string
 	Created string
 	Size    string
+	Scope   string
 }
 
 func (v Volume) GetID() string { return v.Name }
 func (v Volume) GetCells() []string {
-	return []string{v.Name, v.Driver, v.Mount, v.Created, v.Size}
+	return []string{v.Name, v.Driver, v.Scope, v.Mount, v.Created, v.Size}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -78,6 +79,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			Mount:   common.ShortenPath(v.Mountpoint),
 			Created: created,
 			Size:    size,
+			Scope:   v.Scope,
 		})
 	}
 	return res, nil

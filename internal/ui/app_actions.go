@@ -187,7 +187,7 @@ func (a *App) PerformCopy() {
 	if err := a.CopyToClipboard(buffer.String()); err != nil {
 		a.Flash.SetText(fmt.Sprintf("[red]Copy error: %v", err))
 	} else {
-		a.Flash.SetText(fmt.Sprintf("[green]Copied %d rows", len(view.Data)))
+		a.Flash.SetText(fmt.Sprintf("[#000000:#50fa7b:b] <copied %d rows>[-]", len(view.Data)))
 	}
 	a.UpdateShortcuts()
 }

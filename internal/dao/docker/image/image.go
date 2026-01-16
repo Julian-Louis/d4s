@@ -1,6 +1,7 @@
 package image
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types/filters"
@@ -21,15 +22,20 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 
 // Image Model
 type Image struct {
-	ID      string
-	Tags    string
-	Size    string
-	Created string
+	ID         string
+	Tags       string
+	Size       string
+	Created    string
+	Containers int64
 }
 
 func (i Image) GetID() string { return i.ID }
 func (i Image) GetCells() []string {
-	return []string{i.ID[:12], i.Tags, i.Size, i.Created}
+	containersStr := fmt.Sprintf("%d", i.Containers)
+	if i.Containers == 0 {
+		containersStr = fmt.Sprintf("[darkgray]-[-]")
+	}
+	return []string{i.ID[:12], i.Tags, i.Size, containersStr, i.Created}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -45,10 +51,11 @@ func (m *Manager) List() ([]common.Resource, error) {
 			tags = i.RepoTags[0]
 		}
 		res = append(res, Image{
-			ID:      strings.TrimPrefix(i.ID, "sha256:"),
-			Tags:    tags,
-			Size:    common.FormatBytes(i.Size),
-			Created: common.FormatTime(i.Created),
+			ID:         strings.TrimPrefix(i.ID, "sha256:"),
+			Tags:       tags,
+			Size:       common.FormatBytes(i.Size),
+			Created:    common.FormatTime(i.Created),
+			Containers: i.Containers,
 		})
 	}
 	return res, nil
