@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
@@ -253,6 +254,11 @@ func (m *Manager) Restart(id string) error {
 
 func (m *Manager) Remove(id string, force bool) error {
 	return m.cli.ContainerRemove(m.ctx, id, container.RemoveOptions{Force: force})
+}
+
+func (m *Manager) Prune() error {
+	_, err := m.cli.ContainersPrune(m.ctx, filters.NewArgs())
+	return err
 }
 
 func (m *Manager) Logs(id string, since string, tail string, timestamps bool) (io.ReadCloser, error) {

@@ -51,6 +51,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("n", "Networks"),
 		common.FormatSCHeader("r", "(Re)Start"),
 		common.FormatSCHeader("x", "Stop"),
+		common.FormatSCHeader("p", "Prune"),
 	}
 }
 
@@ -91,6 +92,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case 'x':
 		StopAction(app, v)
+		return nil
+	case 'p':
+		PruneAction(app)
 		return nil
 	}
 	
@@ -308,6 +312,27 @@ func StopAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().StopContainer(id)
 	}, "Stopping", styles.ColorStatusRed)
+}
+
+func PruneAction(app common.AppController) {
+	dialogs.ShowConfirmation(app, "PRUNE", "Containers", func(force bool) {
+		app.SetFlashText("[yellow]Pruning Containers...")
+		go func() {
+			err := Prune(app)
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				if err != nil {
+					app.SetFlashText(fmt.Sprintf("[red]Prune Error: %v", err))
+				} else {
+					app.SetFlashText("[green]Pruned Containers")
+					app.RefreshCurrentView()
+				}
+			})
+		}()
+	})
+}
+
+func Prune(app common.AppController) error {
+	return app.GetDocker().PruneContainers()
 }
 
 func Remove(id string, force bool, app common.AppController) error {

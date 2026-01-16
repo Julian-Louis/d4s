@@ -106,6 +106,10 @@ func (d *DockerClient) RemoveContainer(id string, force bool) error {
 	return d.Container.Remove(id, force)
 }
 
+func (d *DockerClient) PruneContainers() error {
+	return d.Container.Prune()
+}
+
 func (d *DockerClient) RemoveImage(id string, force bool) error {
 	return d.Image.Remove(id, force)
 }
