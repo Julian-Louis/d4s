@@ -53,11 +53,11 @@ type AppController interface {
 func FormatSCHeader(key, action string) string {
 	// Format: <Key> [spaces] Label
 	// Using spaces instead of tab for predictable spacing
-	return fmt.Sprintf("[#5f87ff]<%s>[-]   %s", key, action)
+	return fmt.Sprintf("[#5f87ff::b]<%s>[-]   [gray]%s[-]", key, action)
 }
 
 // Helper for footer shortcuts (legacy/logs)
 func FormatSC(key, action string) string {
-	return fmt.Sprintf("[#5f87ff::b]<%s>[#f8f8f2:-] %s ", key, action)
+	return fmt.Sprintf("[#5f87ff::b]<%s>[#f8f8f2:-] [gray]%s[-] ", key, action)
 }
 

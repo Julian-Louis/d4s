@@ -13,7 +13,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/dialogs"
 )
 
-var Headers = []string{"ID", "NAME", "IMAGE", "MODE", "REPLICAS", "PORTS"}
+var Headers = []string{"ID", "NAME", "IMAGE", "MODE", "REPLICAS", "PORTS", "CREATED"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	services, err := app.GetDocker().ListServices()

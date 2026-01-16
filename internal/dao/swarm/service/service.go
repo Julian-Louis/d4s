@@ -30,11 +30,12 @@ type Service struct {
 	Mode     string
 	Replicas string
 	Ports    string
+	Created  string
 }
 
 func (s Service) GetID() string { return s.ID }
 func (s Service) GetCells() []string {
-	return []string{s.ID[:12], s.Name, s.Image, s.Mode, s.Replicas, s.Ports}
+	return []string{s.ID[:12], s.Name, s.Image, s.Mode, s.Replicas, s.Ports, s.Created}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -85,6 +86,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			Mode:     mode,
 			Replicas: replicas,
 			Ports:    ports,
+			Created:  common.FormatTime(s.CreatedAt.Unix()),
 		})
 	}
 	return res, nil

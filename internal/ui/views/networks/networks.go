@@ -11,7 +11,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/dialogs"
 )
 
-var Headers = []string{"ID", "NAME", "DRIVER", "SCOPE"}
+var Headers = []string{"ID", "NAME", "DRIVER", "SCOPE", "CREATED"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	scope := app.GetActiveScope()

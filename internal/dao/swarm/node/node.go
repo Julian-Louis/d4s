@@ -26,11 +26,12 @@ type Node struct {
 	Avail    string
 	Role     string
 	Version  string
+	Created  string
 }
 
 func (n Node) GetID() string { return n.ID }
 func (n Node) GetCells() []string {
-	return []string{n.ID[:12], n.Hostname, n.Status, n.Avail, n.Role, n.Version}
+	return []string{n.ID[:12], n.Hostname, n.Status, n.Avail, n.Role, n.Version, n.Created}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -48,6 +49,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			Avail:    string(n.Spec.Availability),
 			Role:     string(n.Spec.Role),
 			Version:  n.Description.Engine.EngineVersion,
+			Created:  common.FormatTime(n.CreatedAt.Unix()),
 		})
 	}
 	return res, nil

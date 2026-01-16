@@ -81,29 +81,29 @@ func (i *LogInspector) GetStatus() string {
 	}
 
 	parts := []string{}
-	parts = append(parts, fmtStatus("Autoscroll", i.AutoScroll))
-	parts = append(parts, fmtStatus("FullScreen", false))
-	parts = append(parts, fmtStatus("Timestamps", i.Timestamps))
-	parts = append(parts, fmtStatus("Wrap", i.Wrap))
-	parts = append(parts, fmt.Sprintf("[#5f87ff]Since:[-][white]%s[-]", i.sinceLabel))
+	parts = append(parts, fmtStatus("[::b]Autoscroll[::-]", i.AutoScroll))
+	parts = append(parts, fmtStatus("[::b]FullScreen[::-]", false))
+	parts = append(parts, fmtStatus("[::b]Timestamps[::-]", i.Timestamps))
+	parts = append(parts, fmtStatus("[::b]Wrap[::-]", i.Wrap))
+	parts = append(parts, fmt.Sprintf("[#5f87ff::b]Since:[-::-][white]%s[-]", i.sinceLabel))
 	
 	return strings.Join(parts, "     ")
 }
 
 func (i *LogInspector) GetShortcuts() []string {
 	// Helper for pink shortcuts (time/range control)
-	pinkSC := func(key, action string) string {
-		return fmt.Sprintf("[orange]<%s>[-]   %s", key, action)
+	altSC := func(key, action string) string {
+		return fmt.Sprintf("[#ff00ff::b]<%s>[-]   [gray]%s[-]", key, action)
 	}
 
 	pinkShortcuts := []string{
-		pinkSC("0", "Tail"),
-		pinkSC("1", "Head"),
-		pinkSC("2", "1m"),
-		pinkSC("3", "5m"),
-		pinkSC("4", "15m"),
-		pinkSC("5", "30m"),
-		pinkSC("6", "1h"),
+		altSC("0", "Tail"),
+		altSC("1", "Head"),
+		altSC("2", "1m"),
+		altSC("3", "5m"),
+		altSC("4", "15m"),
+		altSC("5", "30m"),
+		altSC("6", "1h"),
 	}
 
 	// Calculate padding to finish the current column

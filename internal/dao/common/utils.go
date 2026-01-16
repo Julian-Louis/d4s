@@ -95,7 +95,24 @@ func ShortenDuration(d string) string {
 
 func FormatTime(ts int64) string {
 	t := time.Unix(ts, 0)
-	return t.Format("2006-01-02 15:04")
+	now := time.Now()
+
+	// Reset clock to calculate difference in calendar days
+	tDate := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local)
+	nDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	days := int(nDate.Sub(tDate).Hours() / 24)
+
+	dateStr := t.Format("2006-01-02")
+	timeStr := t.Format("15:04")
+
+	if days == 0 {
+		return fmt.Sprintf("[#50fa7b]%s[-] %s", dateStr, timeStr)
+	}
+	if days == 1 {
+		return fmt.Sprintf("[#8be9fd]%s[-] %s", dateStr, timeStr)
+	}
+
+	return fmt.Sprintf("[dim]%s[-] %s", dateStr, timeStr)
 }
 
 func FormatBytes(b int64) string {

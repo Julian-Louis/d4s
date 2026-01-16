@@ -1,11 +1,14 @@
 package volume
 
 import (
+	"context"
+	"time"
+
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/volume"
+	volTypes "github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/jr-k/d4s/internal/dao/common"
-	"golang.org/x/net/context"
 )
 
 type Manager struct {
@@ -19,35 +22,69 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 
 // Volume Model
 type Volume struct {
-	Name   string
-	Driver string
-	Mount  string
+	Name    string
+	Driver  string
+	Mount   string
+	Created string
+	Size    string
 }
 
 func (v Volume) GetID() string { return v.Name }
 func (v Volume) GetCells() []string {
-	return []string{v.Name, v.Driver, v.Mount}
+	return []string{v.Name, v.Driver, v.Mount, v.Created, v.Size}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
-	list, err := m.cli.VolumeList(m.ctx, volume.ListOptions{})
+	// 1. Get List of all volumes (fast & reliable)
+	list, err := m.cli.VolumeList(m.ctx, volTypes.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. Try to get Usage Data (optional / might fail or be partial)
+	sizes := make(map[string]string)
+
+	// Use a timeout context for DiskUsage as it can be very slow
+	ctx, cancel := context.WithTimeout(m.ctx, 2*time.Second)
+	defer cancel()
+
+	du, err := m.cli.DiskUsage(ctx, types.DiskUsageOptions{})
+	if err == nil {
+		for _, v := range du.Volumes {
+			if v.UsageData != nil {
+				sizes[v.Name] = common.FormatBytes(v.UsageData.Size)
+			}
+		}
+	}
+
 	var res []common.Resource
 	for _, v := range list.Volumes {
+		created := "-"
+		if v.CreatedAt != "" {
+			t, err := time.Parse(time.RFC3339, v.CreatedAt)
+			if err == nil {
+				created = common.FormatTime(t.Unix())
+			}
+		}
+
+		size := "-"
+		if s, ok := sizes[v.Name]; ok {
+			size = s
+		}
+
 		res = append(res, Volume{
-			Name:   v.Name,
-			Driver: v.Driver,
-			Mount:  common.ShortenPath(v.Mountpoint),
+			Name:    v.Name,
+			Driver:  v.Driver,
+			Mount:   common.ShortenPath(v.Mountpoint),
+			Created: created,
+			Size:    size,
 		})
 	}
 	return res, nil
 }
 
 func (m *Manager) Create(name string) error {
-	_, err := m.cli.VolumeCreate(m.ctx, volume.CreateOptions{
+	_, err := m.cli.VolumeCreate(m.ctx, volTypes.CreateOptions{
 		Name: name,
 	})
 	return err

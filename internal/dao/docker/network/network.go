@@ -19,15 +19,16 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 
 // Network Model
 type Network struct {
-	ID     string
-	Name   string
-	Driver string
-	Scope  string
+	ID      string
+	Name    string
+	Driver  string
+	Scope   string
+	Created string
 }
 
 func (n Network) GetID() string { return n.ID }
 func (n Network) GetCells() []string {
-	return []string{n.ID[:12], n.Name, n.Driver, n.Scope}
+	return []string{n.ID[:12], n.Name, n.Driver, n.Scope, n.Created}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -39,10 +40,11 @@ func (m *Manager) List() ([]common.Resource, error) {
 	var res []common.Resource
 	for _, n := range list {
 		res = append(res, Network{
-			ID:     n.ID,
-			Name:   n.Name,
-			Driver: n.Driver,
-			Scope:  n.Scope,
+			ID:      n.ID,
+			Name:    n.Name,
+			Driver:  n.Driver,
+			Scope:   n.Scope,
+			Created: common.FormatTime(n.Created.Unix()),
 		})
 	}
 	return res, nil

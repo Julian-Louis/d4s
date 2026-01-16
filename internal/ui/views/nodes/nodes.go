@@ -12,7 +12,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"ID", "HOSTNAME", "STATUS", "AVAIL", "ROLE", "VERSION"}
+var Headers = []string{"ID", "HOSTNAME", "STATUS", "AVAIL", "ROLE", "VERSION", "CREATED"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	return app.GetDocker().ListNodes()
