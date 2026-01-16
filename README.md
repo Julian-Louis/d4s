@@ -9,6 +9,15 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 
 > Manage your Docker Swarm, Compose stacks, and Containers with a fancy, fast, and keyboard-centric Terminal User Interface.
 
+## 📸 Screenshots
+<div align="left" width="100%">
+    <img src="./docs/img/screen1.png" width="100%" alt="" style="border: 1px solid black; outline: 1px solid black;" />
+</div>
+<br />
+<div align="left" width="100%">
+    <img src="./docs/img/screen2.png" width="100%" alt="" style="border: 1px solid black; outline: 1px solid black;" />
+</div>
+
 ## ✨ Features
 
 - 🍊 **Fancy UI**: Modern TUI with Dracula theme, smooth navigation, and live updates.
