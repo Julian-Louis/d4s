@@ -82,9 +82,11 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 	// Show the parent view name and the active scope (subview) label
 	if a.ActiveScope != nil {
 		parentView := strings.ToLower(a.ActiveScope.OriginView)
-		title = fmt.Sprintf(" [#8be9fd]%s[dim](%s) > [#bd93f9]%s[#8be9fd][[white]%s[#8be9fd]] ", 
+		cleanLabel := strings.ReplaceAll(a.ActiveScope.Label, "[#6272a4]", "[orange]")
+		cleanLabel = strings.ReplaceAll(a.ActiveScope.Label, "@", "[white] @ [orange]")
+		title = fmt.Sprintf(" [#8be9fd]%s([-][orange]%s[#8be9fd]) > [#bd93f9]%s[#8be9fd][[white]%s[#8be9fd]] ", 
 			parentView, 
-			a.ActiveScope.Label,
+			cleanLabel,
 			viewName,
 			countStr)
 	}

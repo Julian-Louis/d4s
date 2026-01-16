@@ -256,7 +256,7 @@ func Describe(app common.AppController, v *view.ResourceView) {
 		subject = fmt.Sprintf("%s@%s", name, subject)
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Container", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe container", subject, content, "json"))
 }
 
 func Shell(app common.AppController, id string) {

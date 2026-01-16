@@ -159,7 +159,7 @@ func Inspect(app common.AppController, id string) {
 		}
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Service", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe service", subject, content, "json"))
 }
 
 func Remove(id string, force bool, app common.AppController) error {

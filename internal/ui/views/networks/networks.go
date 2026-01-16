@@ -48,7 +48,7 @@ func Inspect(app common.AppController, id string) {
 		subject = fmt.Sprintf("%s@%s", name, subject)
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Network", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe network", subject, content, "json"))
 }
 
 func GetShortcuts() []string {

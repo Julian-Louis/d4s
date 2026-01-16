@@ -17,8 +17,8 @@ func FormatInspectorTitle(action, subject, mode, filter string, matchIndex, matc
 		subject = strings.ReplaceAll(subject, "@", "[white] @ [orange]")
 	}
 	
-	title := fmt.Sprintf("[blue]%s([orange]%s[blue])", action, subject)
-	modeStr := fmt.Sprintf(" [blue][[white]%s[blue]]", mode)
+	title := fmt.Sprintf("[#8be9fd]%s([orange]%s[#8be9fd])", action, subject)
+	modeStr := fmt.Sprintf(" [#8be9fd][[white]%s[#8be9fd]]", mode)
 	
 	search := ""
 	if filter != "" {
@@ -27,7 +27,7 @@ func FormatInspectorTitle(action, subject, mode, filter string, matchIndex, matc
 			idx = matchIndex + 1
 		}
 		
-		search = fmt.Sprintf(" [blue]</[orange]%s [-][[white]%d[-]:[white]%d[-]][blue]>", filter, idx, matchCount)
+		search = fmt.Sprintf(" [#8be9fd]</[orange]%s [-][[white]%d[-]:[white]%d[-]][#8be9fd]>", filter, idx, matchCount)
 	}
 
 	return fmt.Sprintf(" %s%s%s ", title, modeStr, search)

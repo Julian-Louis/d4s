@@ -189,5 +189,5 @@ func Inspect(app common.AppController, id string) {
 		}
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Volume", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe volume", subject, content, "json"))
 }

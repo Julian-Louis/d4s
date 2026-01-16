@@ -67,7 +67,7 @@ func (i *LogInspector) GetTitle() string {
 	// Standard Title on first line
 	title := FormatInspectorTitle("Logs", i.Subject, "", i.filter, 0, 0)
 	// Remove empty mode brackets from standard title if needed
-	title = strings.ReplaceAll(title, " [[white][blue]]", "")
+	title = strings.ReplaceAll(title, " [[white][#8be9fd]]", "")
 	return title
 }
 

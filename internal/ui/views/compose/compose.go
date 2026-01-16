@@ -46,7 +46,7 @@ func Inspect(app common.AppController, id string) {
 		subject = fmt.Sprintf("%s@%s", id, daoCommon.ShortenPath(path))
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Compose", subject, content, "yaml"))
+	app.OpenInspector(inspect.NewTextInspector("Describe compose", subject, content, "yaml"))
 }
 
 func GetShortcuts() []string {

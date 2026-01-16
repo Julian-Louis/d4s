@@ -50,7 +50,7 @@ func Inspect(app common.AppController, id string) {
 		}
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Node", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe node", subject, content, "json"))
 }
 
 func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {

@@ -92,7 +92,7 @@ func Inspect(app common.AppController, id string) {
 		}
 	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe Image", subject, content, "json"))
+	app.OpenInspector(inspect.NewTextInspector("Describe image", subject, content, "json"))
 }
 
 func DeleteAction(app common.AppController, v *view.ResourceView) {
