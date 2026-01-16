@@ -45,19 +45,19 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 	
 	// Initial Loading State
 	tv.SetBorder(true)
-	tv.SetTitle(fmt.Sprintf(" %s [Loading...] ", title))
+	tv.SetTitle(fmt.Sprintf(" %s [[white]Loading...[-]] ", title))
 	tv.SetTitleColor(styles.ColorTitle)
 	tv.SetBorderColor(styles.ColorTableBorder)
 	tv.SetBackgroundColor(styles.ColorBg)
 	
 	// Add centered Loading message
-	loadingCell := tview.NewTableCell("Loading...").
+	loadingCell := tview.NewTableCell("[orange]Freshly squeezing data 🍊[-]").
 		SetAlign(tview.AlignCenter).
 		SetTextColor(tcell.ColorWhite).
 		SetExpansion(1).
 		SetSelectable(false)
 	
-	tv.SetCell(0, 0, loadingCell)
+	tv.SetCell(2, 0, loadingCell)
 
 	// Disable default selected style to handle overlay manually
 	tv.SetSelectedStyle(tcell.StyleDefault)
