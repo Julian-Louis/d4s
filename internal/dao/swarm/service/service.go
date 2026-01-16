@@ -79,6 +79,14 @@ func (m *Manager) List() ([]common.Resource, error) {
 		if idx := strings.LastIndex(imageName, "@"); idx != -1 {
 			imageName = imageName[:idx]
 		}
+		
+		// Style tag
+		if idx := strings.LastIndex(imageName, ":"); idx != -1 {
+			tag := imageName[idx:]
+			if tag == ":latest" {
+				imageName = imageName[:idx] + "[gray]" + tag + "[-]"
+			}
+		}
 
 		res = append(res, Service{
 			ID:       s.ID,

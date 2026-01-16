@@ -98,9 +98,9 @@ func (m *Manager) updateStats(containers []types.Container) {
 				cpuStr := fmt.Sprintf("%.1f%%", cpuPct)
 				memStr := ""
 				if limit > 0 {
-					memStr = fmt.Sprintf("%.1f%% ([#6272a4]%s[-])", float64(mem)/float64(limit)*100.0, common.FormatBytes(int64(mem)))
+					memStr = fmt.Sprintf("%6.1f%% ([#6272a4]%s[-])", float64(mem)/float64(limit)*100.0, common.FormatBytesFixed(int64(mem)))
 				} else {
-					memStr = fmt.Sprintf("0%% ([#6272a4]%s[-])", common.FormatBytes(int64(mem)))
+					memStr = fmt.Sprintf("%6.1f%% ([#6272a4]%s[-])", 0.0, common.FormatBytesFixed(int64(mem)))
 				}
 
 				m.statsMutex.Lock()

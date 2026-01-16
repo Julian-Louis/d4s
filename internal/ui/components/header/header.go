@@ -45,7 +45,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	// Build CPU display with cores and percentage
 	cpuDisplay := fmt.Sprintf("%s cores", stats.CPU)
 	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "..." {
-		cpuDisplay += fmt.Sprintf(" ([orange]%s[-])", stats.CPUPercent)
+		cpuDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.CPUPercent)
 	} else if stats.CPUPercent == "..." {
 		cpuDisplay += " [dim](...)"
 	}
@@ -53,7 +53,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	// Build Mem display with total and percentage
 	memDisplay := stats.Mem
 	if stats.MemPercent != "" && stats.MemPercent != "N/A" && stats.MemPercent != "..." {
-		memDisplay += fmt.Sprintf(" ([orange]%s[-])", stats.MemPercent)
+		memDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.MemPercent)
 	} else if stats.MemPercent == "..." {
 		memDisplay += " [dim](...)"
 	}
@@ -91,16 +91,49 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	const maxPerCol = 6
 	const groupSpacer = "      " // Spacer between shortcut groups
 	
-	colIndex := 2 // Start at 2 (0=Stats, 1=Spacer)
-	for i := 0; i < len(shortcuts); i += maxPerCol {
-		end := i + maxPerCol
-		if end > len(shortcuts) {
-			end = len(shortcuts)
+	// Organize shortcuts into columns, respecting color changes
+	var columns [][]string
+	if len(shortcuts) > 0 {
+		var currentCol []string
+		lastColorPrefix := ""
+
+		for _, sc := range shortcuts {
+			// Extract color prefix
+			colorPrefix := ""
+			idx := -1
+			for j := 0; j < len(sc); j++ {
+				if sc[j] == '<' {
+					idx = j
+					break
+				}
+			}
+			if idx > 0 {
+				colorPrefix = sc[:idx]
+			}
+
+			// Determine if we need a new column
+			// New column if:
+			// 1. Current column is full
+			// 2. Color prefix changes (and current column is not empty)
+			if len(currentCol) >= maxPerCol || (len(currentCol) > 0 && lastColorPrefix != "" && colorPrefix != lastColorPrefix) {
+				columns = append(columns, currentCol)
+				currentCol = []string{}
+			}
+
+			currentCol = append(currentCol, sc)
+			lastColorPrefix = colorPrefix
 		}
-		
-		chunk := shortcuts[i:end]
-		
-		// Add spacer column between groups (but not before the first one, handled by existing spacer)
+		// Append last column
+		if len(currentCol) > 0 {
+			columns = append(columns, currentCol)
+		}
+	}
+
+	colIndex := 2 // Start at 2 (0=Stats, 1=Spacer)
+	
+	// Render Columns
+	for i, colShortcuts := range columns {
+		// Add spacer column between groups (but not before the first one)
 		if i > 0 {
 			for row := 0; row < maxPerCol; row++ {
 				h.View.SetCell(row, colIndex, tview.NewTableCell(groupSpacer).SetBackgroundColor(styles.ColorBg))
@@ -108,14 +141,13 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 			colIndex++
 		}
 		
-		// Fill all 6 rows for this column pair to ensure background color
+		// Fill all 6 rows for this column pair
 		for row := 0; row < maxPerCol; row++ {
 			var aliasText, labelText string
-			if row < len(chunk) {
-				// Parse the shortcut format: [#5f87ff]<key>[-]   label
-				shortcut := chunk[row]
+			if row < len(colShortcuts) {
+				shortcut := colShortcuts[row]
 				
-				// Find the start of <key>
+				// Parse logic (kept same as before)
 				ltIdx := -1
 				gtIdx := -1
 				for j := 0; j < len(shortcut); j++ {
@@ -128,53 +160,43 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 				}
 				
 				if ltIdx != -1 && gtIdx != -1 {
-					// Extract everything before < as color prefix
 					colorPrefix := shortcut[:ltIdx]
-					// Extract key between < and >
 					key := shortcut[ltIdx+1 : gtIdx]
-					// Build alias: colorPrefix + <key> + [-] + 2 spaces padding
-					// This lets tview auto-size the column to the widest alias + 2 spaces,
-					// ensuring labels are aligned and close to the aliases.
 					aliasText = colorPrefix + "<" + key + ">[-]  "
 					
-					// Find label: everything after >[-] and spaces
 					labelStart := gtIdx + 1
-					// Skip [-]
 					if labelStart < len(shortcut) && shortcut[labelStart] == '[' {
 						for labelStart < len(shortcut) && shortcut[labelStart] != ']' {
 							labelStart++
 						}
 						labelStart++ // Skip ]
 					}
-					// Skip spaces
 					for labelStart < len(shortcut) && shortcut[labelStart] == ' ' {
 						labelStart++
 					}
-					// Extract label
 					if labelStart < len(shortcut) {
 						labelText = shortcut[labelStart:]
 					}
 				} else {
-					// Fallback: use whole text as label if parsing fails
 					labelText = shortcut
 				}
 			}
 			
-			// Alias column (fixed width, left aligned)
+			// Alias column
 			aliasCell := tview.NewTableCell(aliasText).
 				SetAlign(tview.AlignLeft).
 				SetExpansion(0).
 				SetBackgroundColor(styles.ColorBg)
 			h.View.SetCell(row, colIndex, aliasCell)
 			
-			// Label column (flexible, left aligned)
+			// Label column
 			labelCell := tview.NewTableCell(labelText).
 				SetAlign(tview.AlignLeft).
 				SetExpansion(0).
 				SetBackgroundColor(styles.ColorBg)
 			h.View.SetCell(row, colIndex+1, labelCell)
 		}
-		colIndex += 2 // Move to next shortcut column pair
+		colIndex += 2
 	}
 	
 	// Flexible Spacer Column (pushes logo to right)

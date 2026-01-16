@@ -56,8 +56,12 @@ func FormatSCHeader(key, action string) string {
 	return fmt.Sprintf("[#5f87ff::b]<%s>[-]   [gray]%s[-]", key, action)
 }
 
+func FormatSCHeaderGlobal(key, action string) string {
+	// Global shortcuts use orange/pinkish color for alias
+	return fmt.Sprintf("[orange::b]<%s>[-]   [gray]%s[-]", key, action)
+}
+
 // Helper for footer shortcuts (legacy/logs)
 func FormatSC(key, action string) string {
 	return fmt.Sprintf("[#5f87ff::b]<%s>[#f8f8f2:-] [gray]%s[-] ", key, action)
 }
-

@@ -20,9 +20,10 @@ func (a *App) getCurrentShortcuts() []string {
 		shortcuts = view.ShortcutsFunc()
 	}
 	
-	shortcuts = append(shortcuts, common.FormatSCHeader("shift ←/→", "Sort"))
-	shortcuts = append(shortcuts, common.FormatSCHeader("c", "Copy"))
-	shortcuts = append(shortcuts, common.FormatSCHeader("?", "Help"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("shift ←/→", "Sort"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("c", "Copy"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("u", "Unselect All"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("?", "Help"))
 	
 	return shortcuts
 }
@@ -54,4 +55,3 @@ func (a *App) updateHeader() {
 		}
 	}()
 }
-

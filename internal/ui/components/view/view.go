@@ -107,6 +107,11 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 			v.SortAsc = !v.SortAsc
 			app.RefreshCurrentView()
 			return nil
+		case 'u': // Unselect All
+			v.SelectedIDs = make(map[string]bool)
+			// Refresh styles for all rows to remove highlights and markers
+			v.renderAll()
+			return nil
 		case '/':
 			app.ActivateCmd("/")
 			return nil
@@ -300,8 +305,12 @@ func (v *ResourceView) renderAll() {
 
 		// Align Right for numeric columns
 		headerName := strings.ToUpper(h)
-		if headerName == "SIZE" || headerName == "REPLICAS" || headerName == "CPU" || headerName == "MEM" || headerName == "CONTAINERS" {
+		if headerName == "SIZE" || headerName == "REPLICAS" || headerName == "CPU" || headerName == "CONTAINERS" {
 			cell.SetAlign(tview.AlignRight)
+		}
+
+		if headerName == "MEM" {
+			cell.SetAlign(tview.AlignCenter)
 		}
 
 		v.Table.SetCell(0, i, cell)
@@ -563,6 +572,17 @@ func (v *ResourceView) updateRowStyle(rowIndex int, item dao.Resource) {
 			cell.SetAttributes(tcell.AttrNone)
 		}
 
+		if forceTheme {
+			// Remove label color manipulation in force theme mode
+			// Strip any [color]...[-] sequences and formatting tags from displayText
+			displayText = stripFormattingTags(displayText)
+		}
+
+		// Add selection marker if selected
+		if j == 0 && isSelected {
+			displayText = "*" + displayText
+		}
+
 		cell.SetText(" " + displayText + " ")
 		cell.SetBackgroundColor(bgColor)
 		cell.SetTextColor(colColor)
@@ -611,4 +631,8 @@ func (v *ResourceView) GetSelectedIDs() ([]string, error) {
 		return nil, err
 	}
 	return []string{id}, nil
+}
+
+func stripFormattingTags(text string) string {
+	return common.StripColorTags(text)
 }

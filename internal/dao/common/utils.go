@@ -128,6 +128,20 @@ func FormatBytes(b int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
+func FormatBytesFixed(b int64) string {
+	val := float64(b)
+	// User requested: B KB MB GB TB
+	units := []string{"B ", "KB", "MB", "GB", "TB", "PB", "EB"} 
+	exp := 0
+	for val >= 1000 && exp < len(units)-1 {
+		val /= 1024
+		exp++
+	}
+	// %3.0f: 3 digits max (since < 1000)
+	// %s: unit
+	return fmt.Sprintf("%3.0f %s", val, units[exp])
+}
+
 func CalculateContainerStats(body io.ReadCloser) (float64, uint64, uint64) {
 	defer body.Close()
 	var v map[string]interface{}
@@ -217,4 +231,3 @@ func CalculateStatsFromMap(v map[string]interface{}) (float64, uint64, uint64, f
 
 	return cpuPercent, memUsage, memLimit, netRx, netTx, diskRead, diskWrite
 }
-

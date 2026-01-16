@@ -17,7 +17,7 @@ func NewHelpView(app common.AppController) tview.Primitive {
 		{"[#ffb86c::b]GLOBAL", ""},
 		{"[#5f87ff]:[-]             Command", "[#5f87ff]?[-]             Help"},
 		{"[#5f87ff]/[-]             Filter", "[#5f87ff]esc[-]           Back/Clear"},
-		{"[#5f87ff]c[-]             Copy", ""},
+		{"[#5f87ff]c[-]             Copy", "[#5f87ff]u[-]             Unselect All"},
 		{"", ""},
 		{"[#ffb86c::b]DOCKER", ""},
 		{"[#5f87ff]:c[-]            Containers", "[#5f87ff]:i[-]            Images"},
