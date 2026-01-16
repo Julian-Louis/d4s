@@ -24,13 +24,13 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 
 ## 🚀 Installation
 
-### `MacOS / Linux (Homebrew)`
+### MacOS / Linux (Homebrew)
 ```bash
 brew tap jr-k/d4s
 brew install d4s
 ```
-
-### `Docker`
+---
+### Docker
 ```bash
 docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/jr-k/d4s:latest
 ```
@@ -42,8 +42,9 @@ echo "alias d4s='docker run --rm -it -v /var/run/docker.sock:/var/run/docker.soc
 ```
 *After running this, either restart your terminal or run `source ~/.zshrc` (or `source ~/.bashrc` for Bash) to enable the alias.*
 
+---
 
-### `Binary Releases (Linux / MacOS / Windows)`
+### Binary Releases (Linux / MacOS / Windows)
 
 
 > Automated
@@ -56,16 +57,21 @@ curl -fsSL https://d4scli.io/install.sh | sh
 
 Grab a release from the [releases page](https://github.com/jr-k/d4s/releases) and install it manually.
 
-### `Windows (Scoop)`
+---
+
+### Windows (Scoop)
 ```powershell
 scoop bucket add d4s https://github.com/jr-k/scoop-d4s
 scoop install d4s
 ```
+---
 
-### `Windows (manual)`
+### Windows (manual)
 > Grab a release from the [releases page](https://github.com/jr-k/d4s/releases) and install it manually. Don't forget to add `d4s.exe` to the `PATH`.
 
-### `From Source`
+---
+
+### From Source
 >Requirement: Go 1.21+
 ```bash
 git clone https://github.com/jr-k/d4s.git
