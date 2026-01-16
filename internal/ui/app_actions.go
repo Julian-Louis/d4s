@@ -8,13 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/components/view"
 	"github.com/jr-k/d4s/internal/ui/dialogs"
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-func (a *App) PerformAction(action func(id string) error, actionName string) {
+func (a *App) PerformAction(action func(id string) error, actionName string, color tcell.Color) {
 	page, _ := a.Pages.GetFrontPage()
 	view, ok := a.Views[page]
 	if !ok {
@@ -27,7 +28,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string) {
 	}
 
 	for _, id := range ids {
-		view.SetActionState(id, actionName)
+		view.SetActionState(id, actionName, color)
 	}
 	a.RefreshCurrentView()
 
@@ -74,7 +75,9 @@ func (a *App) getTargetIDs(v *view.ResourceView) ([]string, error) {
 		for id := range v.SelectedIDs {
 			ids = append(ids, id)
 		}
-		return ids, nil
+		if len(ids) > 0 {
+			return ids, nil
+		}
 	}
 	// Fallback to single selection
 	id, err := a.getSelectedID(v)
@@ -121,7 +124,7 @@ func (a *App) PerformDelete() {
 			if item.GetID() == ids[0] {
 				cells := item.GetCells()
 				if len(cells) > 1 {
-					label = fmt.Sprintf("%s ([#8be9fd]%s[yellow])", label, cells[1])
+					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
 				}
 			}
 		}
@@ -133,9 +136,9 @@ func (a *App) PerformDelete() {
 		simpleAction := func(id string) error {
 			return action(id, force, a)
 		}
-		view.HighlightIDs(ids, styles.ColorStatusRed, styles.ColorStatusRedDarkBg, time.Second)
-		view.DeferRefresh(time.Second)
-		a.PerformAction(simpleAction, "Deleting")
+		// view.HighlightIDs(ids, styles.ColorStatusRed, styles.ColorStatusRedDarkBg, time.Second)
+		// view.DeferRefresh(time.Second)
+		a.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 	a.UpdateShortcuts()
 }

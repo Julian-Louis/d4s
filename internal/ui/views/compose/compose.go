@@ -16,7 +16,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"PROJECT", "STATUS", "CONFIG FILES"}
+var Headers = []string{"PROJECT", "READY", "STATUS", "CONFIG FILES"}
 
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	return app.GetDocker().ListCompose()
@@ -113,13 +113,13 @@ func NavigateToContainers(app common.AppController, v *view.ResourceView) {
 func RestartAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().RestartComposeProject(id)
-	}, "Restarting Project")
+	}, "Restarting Project", styles.ColorStatusOrange)
 }
 
 func StopAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().StopComposeProject(id)
-	}, "Stopping Project")
+	}, "Stopping Project", styles.ColorStatusRed)
 }
 
 func EditAction(app common.AppController, v *view.ResourceView) {

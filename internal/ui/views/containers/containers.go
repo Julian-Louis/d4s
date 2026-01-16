@@ -114,7 +114,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 			if item.GetID() == ids[0] {
 				cells := item.GetCells()
 				if len(cells) > 1 {
-					label = fmt.Sprintf("%s ([#8be9fd]%s[yellow])", label, cells[1])
+					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
 				}
 			}
 		}
@@ -126,7 +126,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -292,7 +292,7 @@ func RestartOrStart(app common.AppController, v *view.ResourceView) {
 			if strings.Contains(lowerStatus, "exited") || strings.Contains(lowerStatus, "created") {
 				app.PerformAction(func(id string) error {
 					return app.GetDocker().StartContainer(id)
-				}, "Starting")
+				}, "Starting", styles.ColorStatusBlue)
 				return
 			}
 		}
@@ -301,13 +301,13 @@ func RestartOrStart(app common.AppController, v *view.ResourceView) {
 	// Default to Restart
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().RestartContainer(id)
-	}, "Restarting")
+	}, "Restarting", styles.ColorStatusOrange)
 }
 
 func StopAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().StopContainer(id)
-	}, "Stopping")
+	}, "Stopping", styles.ColorStatusRed)
 }
 
 func Remove(id string, force bool, app common.AppController) error {

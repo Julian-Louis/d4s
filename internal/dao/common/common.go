@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/buildinfo"
 	"golang.org/x/net/context"
 )
@@ -17,6 +18,7 @@ import (
 type Resource interface {
 	GetID() string
 	GetCells() []string
+	GetStatusColor() (statusColor tcell.Color, hoverFgColor tcell.Color)
 }
 
 // HostStats represents basic host metrics

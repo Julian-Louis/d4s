@@ -29,7 +29,7 @@ type AppController interface {
 	GetDocker() *dao.DockerClient
 
 	// Actions
-	PerformAction(action func(id string) error, actionName string)
+	PerformAction(action func(id string) error, actionName string, color tcell.Color)
 	InspectCurrentSelection()
 
 	// State
@@ -57,7 +57,7 @@ type AppController interface {
 func FormatSCHeader(key, action string) string {
 	// Format: <Key> [spaces] Label
 	// Using spaces instead of tab for predictable spacing
-	return fmt.Sprintf("[#5f87ff::b]<%s>[-]   [gray]%s[-]", key, action)
+	return fmt.Sprintf("[#2090ff::b]<%s>[-]   [gray]%s[-]", key, action)
 }
 
 func FormatSCHeaderGlobal(key, action string) string {
@@ -67,5 +67,5 @@ func FormatSCHeaderGlobal(key, action string) string {
 
 // Helper for footer shortcuts (legacy/logs)
 func FormatSC(key, action string) string {
-	return fmt.Sprintf("[#5f87ff::b]<%s>[#f8f8f2:-] [gray]%s[-] ", key, action)
+	return fmt.Sprintf("[#2090ff::b]<%s>[#f8f8f2:-] [gray]%s[-] ", key, action)
 }

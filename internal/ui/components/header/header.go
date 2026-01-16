@@ -10,15 +10,41 @@ import (
 )
 
 type HeaderComponent struct {
-	View      *tview.Table
-	LastStats dao.HostStats
+	View          *tview.Flex
+	StatsView     *tview.Table
+	ShortcutsView *tview.Table
+	LogoView      *tview.Table
+	LastStats     dao.HostStats
 }
 
 func NewHeaderComponent() *HeaderComponent {
-	h := tview.NewTable().SetBorders(false)
-	h.SetBackgroundColor(styles.ColorBg)
+	// Stats (Left)
+	stats := tview.NewTable().SetBorders(false)
+	stats.SetBackgroundColor(styles.ColorBg)
+
+	// Shortcuts (Middle)
+	shortcuts := tview.NewTable().SetBorders(false)
+	shortcuts.SetBackgroundColor(styles.ColorBg)
+
+	// Logo (Right)
+	logo := tview.NewTable().SetBorders(false)
+	logo.SetBackgroundColor(styles.ColorBg)
+
+	// Flex Layout
+	flex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	flex.SetBackgroundColor(styles.ColorBg)
+
+	// Add items: Stats (fixed), Shortcuts (flex), Logo (fixed)
+	// Initial sizes 0, will be updated in Update()
+	flex.AddItem(stats, 0, 0, false)
+	flex.AddItem(shortcuts, 0, 1, false)
+	flex.AddItem(logo, 0, 0, false)
+
 	return &HeaderComponent{
-		View: h,
+		View:          flex,
+		StatsView:     stats,
+		ShortcutsView: shortcuts,
+		LogoView:      logo,
 	}
 }
 
@@ -39,9 +65,12 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	// Save for next time
 	h.LastStats = stats
 
-	h.View.Clear()
-	h.View.SetBackgroundColor(styles.ColorBg) // Ensure no black block
+	// Clear Sub-Views
+	h.StatsView.Clear()
+	h.ShortcutsView.Clear()
+	h.LogoView.Clear()
 
+	// 1. Stats View
 	// Build CPU display with cores and percentage
 	cpuDisplay := fmt.Sprintf("%s cores", stats.CPU)
 	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "..." {
@@ -59,33 +88,43 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	}
 
 	lines := []string{
-		fmt.Sprintf("[#8be9fd]Host:    [white]%s", stats.Hostname),
-		fmt.Sprintf("[#8be9fd]D4s Rev: [white]v%s", stats.D4SVersion),
-		fmt.Sprintf("[#8be9fd]User:    [white]%s", stats.User),
-		fmt.Sprintf("[#8be9fd]Engine:  [white]%s [dim](%s)", stats.Name, stats.Version),
-		fmt.Sprintf("[#8be9fd]CPU:     [white]%s", cpuDisplay),
-		fmt.Sprintf("[#8be9fd]Mem:     [white]%s", memDisplay),
+		fmt.Sprintf("[orange]Host:    [white]%s", stats.Hostname),
+		fmt.Sprintf("[orange]D4s Rev: [white]v%s", stats.D4SVersion),
+		fmt.Sprintf("[orange]User:    [white]%s", stats.User),
+		fmt.Sprintf("[orange]Engine:  [white]%s [dim](%s)", stats.Name, stats.Version),
+		fmt.Sprintf("[orange]CPU:     [white]%s", cpuDisplay),
+		fmt.Sprintf("[orange]Mem:     [white]%s", memDisplay),
 	}
 
-	// Layout Header
-	// Col 0: Stats
+	statsWidth := 0
 	for i, line := range lines {
-		// Add padding to the right of stats
-		cell := tview.NewTableCell(line).
+		h.StatsView.SetCell(i, 0, tview.NewTableCell(line).
 			SetBackgroundColor(styles.ColorBg).
+			SetAlign(tview.AlignLeft))
+
+		w := tview.TaggedStringWidth(line)
+		if w > statsWidth {
+			statsWidth = w
+		}
+	}
+	statsWidth += 4 // Padding
+
+	// 2. Logo View
+	logoWidth := 0
+	for i, line := range common.GetLogo() {
+		cell := tview.NewTableCell(line).
 			SetAlign(tview.AlignLeft).
-			SetExpansion(0) // Fixed width
-		h.View.SetCell(i, 0, cell)
-	}
+			SetBackgroundColor(styles.ColorBg)
+		h.LogoView.SetCell(i, 0, cell)
 
-	// Spacer Column (between Stats and Shortcuts)
-	// A fixed width column to separate them nicely (tripled size ~21 spaces)
-	spacerWidth := "                     "
-	for i := 0; i < 6; i++ {
-		h.View.SetCell(i, 1, tview.NewTableCell(spacerWidth).SetBackgroundColor(styles.ColorBg))
+		w := tview.TaggedStringWidth(line)
+		if w > logoWidth {
+			logoWidth = w
+		}
 	}
+	logoWidth += 2 // Padding
 
-	// Center Columns: Shortcuts
+	// 3. Shortcuts View
 	// Max 6 per column (matches header height)
 	// Each shortcut uses 2 columns: alias (fixed width) and label
 	const maxPerCol = 6
@@ -117,9 +156,6 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 			}
 
 			// Determine if we need a new column
-			// New column if:
-			// 1. Current column is full
-			// 2. Color prefix changes (and current column is not empty)
 			if len(currentCol) >= maxPerCol || (len(currentCol) > 0 && lastColorPrefix != "" && effectiveColor != lastColorPrefix) {
 				columns = append(columns, currentCol)
 				currentCol = []string{}
@@ -136,14 +172,14 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 		}
 	}
 
-	colIndex := 2 // Start at 2 (0=Stats, 1=Spacer)
+	colIndex := 0
 
 	// Render Columns
 	for i, colShortcuts := range columns {
-		// Add spacer column between groups (but not before the first one)
+		// Add spacer column between groups
 		if i > 0 {
 			for row := 0; row < maxPerCol; row++ {
-				h.View.SetCell(row, colIndex, tview.NewTableCell(groupSpacer).SetBackgroundColor(styles.ColorBg))
+				h.ShortcutsView.SetCell(row, colIndex, tview.NewTableCell(groupSpacer).SetBackgroundColor(styles.ColorBg))
 			}
 			colIndex++
 		}
@@ -192,34 +228,19 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 			// Alias column
 			aliasCell := tview.NewTableCell(aliasText).
 				SetAlign(tview.AlignLeft).
-				SetExpansion(0).
 				SetBackgroundColor(styles.ColorBg)
-			h.View.SetCell(row, colIndex, aliasCell)
+			h.ShortcutsView.SetCell(row, colIndex, aliasCell)
 
 			// Label column
 			labelCell := tview.NewTableCell(labelText).
 				SetAlign(tview.AlignLeft).
-				SetExpansion(0).
 				SetBackgroundColor(styles.ColorBg)
-			h.View.SetCell(row, colIndex+1, labelCell)
+			h.ShortcutsView.SetCell(row, colIndex+1, labelCell)
 		}
 		colIndex += 2
 	}
 
-	// Flexible Spacer Column (pushes logo to right)
-	// Use an empty cell with Expansion 1. Need to set it on at least one row.
-	// Set on all rows to be safe with background
-	for i := 0; i < 6; i++ {
-		h.View.SetCell(i, colIndex, tview.NewTableCell("").SetExpansion(1).SetBackgroundColor(styles.ColorBg))
-	}
-	colIndex++
-
-	// Right Column: Logo
-	for i, line := range common.GetLogo() {
-		cell := tview.NewTableCell(line).
-			SetAlign(tview.AlignLeft).
-			SetBackgroundColor(styles.ColorBg).
-			SetExpansion(0) // Fixed width
-		h.View.SetCell(i, colIndex, cell)
-	}
+	// 4. Resize Flex Items
+	h.View.ResizeItem(h.StatsView, statsWidth, 0)
+	h.View.ResizeItem(h.LogoView, logoWidth, 0)
 }

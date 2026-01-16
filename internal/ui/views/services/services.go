@@ -11,6 +11,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/components/inspect"
 	"github.com/jr-k/d4s/internal/ui/components/view"
 	"github.com/jr-k/d4s/internal/ui/dialogs"
+	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
 var Headers = []string{"ID", "NAME", "IMAGE", "MODE", "REPLICAS", "PORTS", "CREATED", "UPDATED"}
@@ -100,7 +101,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -130,7 +131,7 @@ func ScaleZero(app common.AppController, v *view.ResourceView) {
 		scaleAction := func(id string) error {
 			return app.GetDocker().ScaleService(id, 0)
 		}
-		app.PerformAction(scaleAction, "Scaling to 0")
+		app.PerformAction(scaleAction, "Scaling to 0", styles.ColorStatusOrange)
 	})
 }
 

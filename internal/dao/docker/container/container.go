@@ -11,7 +11,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -63,6 +65,34 @@ func (c Container) GetCells() []string {
 		id = id[:12]
 	}
 	return []string{id, c.Names, c.Image, c.IP, c.Status, c.Age, c.Ports, c.CPU, c.Mem, c.Compose, c.Cmd, c.Created}
+}
+
+func (c Container) GetStatusColor() (tcell.Color, tcell.Color) {
+	lower := strings.ToLower(c.State)
+
+	// Fallback to parsed status if State is generic
+	if strings.Contains(strings.ToLower(c.Status), "starting") {
+		return styles.ColorStatusBlue, tcell.ColorBlack
+	}
+
+	switch lower {
+	case "running":
+		if strings.Contains(strings.ToLower(c.Status), "healthy") {
+			//return styles.ColorStatusGreen, tcell.ColorBlack
+		} else if strings.Contains(strings.ToLower(c.Status), "unhealthy") {
+			return styles.ColorStatusRed, tcell.ColorBlack
+		}
+	case "paused":
+		return styles.ColorStatusYellow, tcell.ColorBlack
+	case "restarting":
+		return styles.ColorStatusOrange, tcell.ColorBlack
+	case "exited", "dead":
+		return styles.ColorStatusRed, tcell.ColorBlack
+	case "created":
+		return styles.ColorStatusBlue, tcell.ColorBlack
+	}
+
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) updateStats(containers []types.Container) {
@@ -139,7 +169,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 
 		compose := ""
 		if cf, ok := c.Labels["com.docker.compose.project.config_files"]; ok {
-			compose = "📄 " + common.ShortenPath(cf)
+			compose = common.ShortenPath(cf)
 		} else if proj, ok := c.Labels["com.docker.compose.project"]; ok {
 			compose = "📦 " + proj
 		}

@@ -8,7 +8,9 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	volTypes "github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
 type Manager struct {
@@ -33,6 +35,10 @@ type Volume struct {
 func (v Volume) GetID() string { return v.Name }
 func (v Volume) GetCells() []string {
 	return []string{v.Name, v.Driver, v.Scope, v.Mount, v.Created, v.Size}
+}
+
+func (v Volume) GetStatusColor() (tcell.Color, tcell.Color) {
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

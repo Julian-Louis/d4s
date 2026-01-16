@@ -7,7 +7,9 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -33,9 +35,13 @@ func (i Image) GetID() string { return i.ID }
 func (i Image) GetCells() []string {
 	containersStr := fmt.Sprintf("%d", i.Containers)
 	if i.Containers == 0 {
-		containersStr = "[darkgray]-[-]"
+		containersStr = ""
 	}
 	return []string{i.ID[:12], i.Tags, i.Size, containersStr, i.Created}
+}
+
+func (i Image) GetStatusColor() (tcell.Color, tcell.Color) {
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

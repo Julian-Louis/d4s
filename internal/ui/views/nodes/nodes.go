@@ -113,7 +113,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 

@@ -9,7 +9,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -26,13 +28,36 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 type ComposeProject struct {
 	Name        string
 	Status      string
+	Ready       string
 	ConfigFiles string
 	ConfigPaths []string
 }
 
 func (cp ComposeProject) GetID() string { return cp.Name }
 func (cp ComposeProject) GetCells() []string {
-	return []string{cp.Name, cp.Status, cp.ConfigFiles}
+	return []string{cp.Name, cp.Ready, cp.Status, cp.ConfigFiles}
+}
+
+func (cp ComposeProject) GetStatusColor() (tcell.Color, tcell.Color) {
+	if strings.Contains(cp.Ready, "/") {
+		parts := strings.Split(cp.Ready, "/")
+		if len(parts) == 2 {
+			var running, desired int
+			fmt.Sscanf(parts[0], "%d", &running)
+			fmt.Sscanf(parts[1], "%d", &desired)
+
+			if desired == 0 && running == 0 {
+				return styles.ColorStatusGray, tcell.ColorBlack
+			} else if running < desired {
+				return styles.ColorStatusOrange, tcell.ColorBlack
+			} else if running > desired {
+				return tcell.ColorMediumPurple, tcell.ColorBlack
+			} else if desired > 0 {
+				return styles.ColorIdle, tcell.ColorBlack
+			}
+		}
+	}
+	return styles.ColorFg, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
@@ -76,15 +101,18 @@ func (m *Manager) List() ([]common.Resource, error) {
 
 	var res []common.Resource
 	for name, data := range projects {
-		var configStr string
-		if data.config != "" {
-			configStr = fmt.Sprintf("📄 [#6272a4]%s", data.config)
+		status := "Ready"
+		if data.running < data.total {
+			status = "Degraded"
+		} else if data.total == 0 {
+			status = "Stopped"
 		}
-		
+
 		res = append(res, ComposeProject{
 			Name:        name,
-			Status:      fmt.Sprintf("Running (%d/%d)", data.running, data.total),
-			ConfigFiles: configStr,
+			Status:      status,
+			Ready:       fmt.Sprintf("%d/%d", data.running, data.total),
+			ConfigFiles: data.config,
 			ConfigPaths: data.configPaths,
 		})
 	}

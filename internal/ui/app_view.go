@@ -62,11 +62,31 @@ func (a *App) RefreshCurrentView() {
 				a.updateViewTitle(v, title)
 				
 				v.Update(headers, data)
-				
+
 				// Only update flash if not error
-				status := fmt.Sprintf("[#000000:blue] <%s> [-]", strings.ToLower(page))
+				status := ""
+				if a.ActiveScope != nil {
+					// Dynamic breadcrumb trail coloring: last is always orange, others cyan
+					scopes := []string{a.ActiveScope.OriginView, page}
+					status += " "
+					for i, s := range scopes {
+						color := "#00ffff" // cyan
+						if i == len(scopes)-1 {
+							color = "orange"
+						}
+						// l'espace entre les éléments doit toujours être noir sur noir
+						status += fmt.Sprintf(" [#000000:%s:b] <%s> ", color, strings.ToLower(s))
+						if i < len(scopes)-1 {
+							status += "[#000000:#000000]" // black fg, black bg for space
+						}
+					}
+					status += "[-:-:-]"
+				} else {
+					status = fmt.Sprintf(" [#000000:orange:b] <%s> [-:-:-]", strings.ToLower(page))
+				}
+
 				if filter != "" {
-					status += fmt.Sprintf(`[#000000:orange] <filter: %s> [-]`, filter)
+					status += fmt.Sprintf(` [#000000:#bd93f9:b] <filter: [::-]%s[::b]> [-]`, filter)
 				}
 				a.Flash.SetText(status)
 			}
@@ -77,14 +97,13 @@ func (a *App) RefreshCurrentView() {
 func (a *App) formatViewTitle(viewName string, countStr string, filter string) string {
 	viewName = strings.ToLower(viewName)
 	// Show the view name and the number of items
-	title := fmt.Sprintf(" [#8be9fd]%s[#8be9fd][[white]%s[#8be9fd]] ", viewName, countStr)
+	title := fmt.Sprintf(" [#00ffff::b]%s[#00ffff][[white]%s[#00ffff]] ", viewName, countStr)
 	
 	// Show the parent view name and the active scope (subview) label
 	if a.ActiveScope != nil {
 		parentView := strings.ToLower(a.ActiveScope.OriginView)
-		cleanLabel := strings.ReplaceAll(a.ActiveScope.Label, "[#6272a4]", "[orange]")
-		cleanLabel = strings.ReplaceAll(a.ActiveScope.Label, "@", "[white] @ [orange]")
-		title = fmt.Sprintf(" [#8be9fd]%s([-][orange]%s[#8be9fd]) > [#bd93f9]%s[#8be9fd][[white]%s[#8be9fd]] ", 
+		cleanLabel := strings.ReplaceAll(a.ActiveScope.Label, "@", "[white] @ [#ff00ff]")
+		title = fmt.Sprintf(" [#00ffff::b]%s([-][#ff00ff]%s[#00ffff]) > [#00ffff]%s[#00ffff][[white]%s[#00ffff]] ", 
 			parentView, 
 			cleanLabel,
 			viewName,
@@ -92,7 +111,7 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 	}
 	
 	if filter != "" {
-		title += fmt.Sprintf(" [#8be9fd][[white]Filter: %s[#8be9fd]] ", filter)
+		title += fmt.Sprintf(" [#00ffff][[white]Filter: [::b]%s[::-][#00ffff]] ", filter)
 	}
 	return title
 }

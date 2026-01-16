@@ -1,11 +1,15 @@
 package node
 
 import (
+	"strings"
+
 	dt "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -32,6 +36,23 @@ type Node struct {
 func (n Node) GetID() string { return n.ID }
 func (n Node) GetCells() []string {
 	return []string{n.ID[:12], n.Hostname, n.Status, n.Avail, n.Role, n.Version, n.Created}
+}
+
+func (n Node) GetStatusColor() (tcell.Color, tcell.Color) {
+	status := strings.ToLower(n.Status)
+	// avail := strings.ToLower(n.Avail)
+
+	if strings.Contains(status, "ready") || strings.Contains(status, "active") {
+		return styles.ColorStatusGreen, tcell.ColorBlack
+	}
+	if strings.Contains(status, "down") || strings.Contains(status, "drain") || strings.Contains(status, "disconnected") {
+		return styles.ColorStatusRed, tcell.ColorBlack
+	}
+	if strings.Contains(status, "unknown") {
+		return styles.ColorStatusOrange, tcell.ColorBlack
+	}
+	
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

@@ -46,7 +46,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 
 		color := "[white]"
 		if focused {
-			color = "[#ffb86c]" // Orange focus
+			color = "[orange]" // Orange focus
 			text = fmt.Sprintf("> %s", text)
 		}
 

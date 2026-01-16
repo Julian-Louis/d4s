@@ -25,7 +25,7 @@ type FlashComponent struct {
 
 func NewFlashComponent() *FlashComponent {
 	f := tview.NewTextView()
-	f.SetDynamicColors(true).SetTextColor(styles.ColorFlashFg).SetBackgroundColor(styles.ColorFlashBg) // Royal Blueish
+	f.SetDynamicColors(true).SetTextColor(styles.ColorFlashFg).SetBackgroundColor(styles.ColorFlashBg)
 	return &FlashComponent{View: f}
 }
 

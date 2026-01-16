@@ -5,13 +5,19 @@ import "github.com/gdamore/tcell/v2"
 // Indigo / Dracula-like / K9s Color Palette (Restored)
 var (
 	// Main Background (Indigo/Dark Blue)
-	ColorBg          = tcell.NewRGBColor(30, 30, 46) // Dark Indigo
+	ColorBg          = tcell.NewRGBColor(0,0,0) // Dark Indigo
 	ColorFg          = tcell.ColorWhite
-	
+	ColorTableBorder = tcell.NewRGBColor(0, 255, 255) // Cyan
+
+	ColorBlack = tcell.NewRGBColor(0,0,0)
+	ColorWhite = tcell.NewRGBColor(255, 255, 255)
+
+	ColorHeader = tcell.NewRGBColor(255, 255, 255) // White
+	ColorHeaderSort = tcell.NewRGBColor(0, 255, 255) // Blue
+
 	// Header
-	ColorHeaderBg    = tcell.NewRGBColor(30, 30, 46) // Dark Indigo
-	ColorHeaderFg    = tcell.NewRGBColor(139, 233, 253) // Cyan
 	ColorTitle       = tcell.NewRGBColor(189, 147, 249) // Purple
+	ColorIdle	 	 = tcell.NewRGBColor(137, 206, 250) // Blue
 	
 	// Footer
 	ColorFooterBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray
@@ -19,7 +25,7 @@ var (
 
 	// Flash
 	ColorFlashFg 	 = tcell.NewRGBColor(95, 135, 255) // Royal Blueish
-	ColorFlashBg 	 = tcell.NewRGBColor(30, 30, 46) // Dark Indigo
+	ColorFlashBg 	 = tcell.NewRGBColor(0,0,0) // Dark Indigo
 	
 	// Table
 	ColorSelectBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray
@@ -28,15 +34,11 @@ var (
 	ColorValue       = tcell.ColorWhite
 	
 	// Added for compatibility with view.go
-	ColorTableBorder = tcell.NewRGBColor(139, 233, 253) // Cyan
-	ColorMultiSelectBg = tcell.NewRGBColor(153, 251, 152) // Pink Light/Dark BG for selection
-	ColorMultiSelectFg = tcell.NewRGBColor(153, 251, 152) // Green
+	ColorSelect = tcell.NewRGBColor(153, 251, 152) // Green
 	
 	// Text Colors
 	ColorDim         = tcell.NewRGBColor(98, 114, 164)  // Comment/Dim
-	ColorAccent      = tcell.NewRGBColor(255, 0, 0) // Pink
-	ColorAccentAlt      = tcell.NewRGBColor(255, 184, 108) // Orange
-	ColorAccentSelect = tcell.NewRGBColor(153, 251, 152) // Green
+	ColorAccent      = tcell.NewRGBColor(255, 184, 108) // Orange
 	
 	// Status
 	ColorLogo        = tcell.NewRGBColor(255, 184, 108) // Orange
@@ -48,7 +50,7 @@ var (
 	ColorStatusRed   = tcell.NewRGBColor(255, 85, 85)   // Red
 	ColorStatusGray  = tcell.NewRGBColor(98, 114, 164)  // Gray/Purple
 	ColorStatusYellow = tcell.NewRGBColor(241, 250, 140) // Yellow
-	ColorStatusOrange = tcell.NewRGBColor(255, 184, 108) // Orange
+	ColorStatusOrange = tcell.NewRGBColor(255, 140, 3) // Orange
 	ColorStatusBlue = tcell.NewRGBColor(1, 123, 255)  // Blue (lighter)
 	ColorStatusPurple = tcell.NewRGBColor(103, 35, 186) // Purple
 

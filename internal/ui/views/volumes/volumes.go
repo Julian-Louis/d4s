@@ -92,7 +92,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -117,7 +117,7 @@ func Create(app common.AppController) {
 					app.ScheduleViewHighlight(styles.TitleVolumes, func(res dao.Resource) bool {
 						vol, ok := res.(dao.Volume)
 						return ok && vol.Name == text
-					}, styles.ColorStatusGreen, styles.ColorStatusGreenDarkBg, time.Second)
+					}, styles.ColorStatusGreen, styles.ColorBlack, 2*time.Second)
 					app.RefreshCurrentView()
 				}
 			})

@@ -67,7 +67,7 @@ func (i *LogInspector) GetTitle() string {
 	// Standard Title on first line
 	title := FormatInspectorTitle("Logs", i.Subject, "", i.filter, 0, 0)
 	// Remove empty mode brackets from standard title if needed
-	title = strings.ReplaceAll(title, " [[white][#8be9fd]]", "")
+	title = strings.ReplaceAll(title, " [[white][#00ffff]]", "")
 	return title
 }
 
@@ -91,12 +91,12 @@ func (i *LogInspector) GetStatus() string {
 }
 
 func (i *LogInspector) GetShortcuts() []string {
-	// Helper for pink shortcuts (time/range control)
+	// Helper for alt shortcuts (time/range control)
 	altSC := func(key, action string) string {
 		return fmt.Sprintf("[#ff00ff::b]<%s>[-]   [gray]%s[-]", key, action)
 	}
 
-	pinkShortcuts := []string{
+	altShortcuts := []string{
 		altSC("0", "Tail"),
 		altSC("1", "Head"),
 		altSC("2", "1m"),
@@ -109,16 +109,16 @@ func (i *LogInspector) GetShortcuts() []string {
 	// Calculate padding to finish the current column
 	// Max items per column is 6 (defined in header.go)
 	const maxPerCol = 6
-	paddingNeeded := maxPerCol - (len(pinkShortcuts) % maxPerCol)
+	paddingNeeded := maxPerCol - (len(altShortcuts) % maxPerCol)
 	if paddingNeeded == maxPerCol {
 		paddingNeeded = 0
 	}
 	
 	for j := 0; j < paddingNeeded; j++ {
-		pinkShortcuts = append(pinkShortcuts, "")
+		altShortcuts = append(altShortcuts, "")
 	}
 
-	return append(pinkShortcuts,
+	return append(altShortcuts,
 		common.FormatSCHeader("s", "Scroll"),
 		common.FormatSCHeader("w", "Wrap"),
 		common.FormatSCHeader("t", "Time"),

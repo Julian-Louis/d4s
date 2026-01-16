@@ -7,7 +7,9 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -34,6 +36,10 @@ type Network struct {
 func (n Network) GetID() string { return n.ID }
 func (n Network) GetCells() []string {
 	return []string{n.ID[:12], n.Name, n.Driver, n.Scope, n.Created, n.Internal, n.Subnet}
+}
+
+func (n Network) GetStatusColor() (tcell.Color, tcell.Color) {
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

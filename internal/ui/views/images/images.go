@@ -9,6 +9,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/components/inspect"
 	"github.com/jr-k/d4s/internal/ui/components/view"
 	"github.com/jr-k/d4s/internal/ui/dialogs"
+	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
 var Headers = []string{"ID", "TAGS", "SIZE", "CONTAINERS", "CREATED"}
@@ -107,7 +108,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 			if item.GetID() == ids[0] {
 				cells := item.GetCells()
 				if len(cells) > 1 {
-					label = fmt.Sprintf("%s ([#8be9fd]%s[yellow])", label, cells[1])
+					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
 				}
 			}
 		}
@@ -119,7 +120,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 

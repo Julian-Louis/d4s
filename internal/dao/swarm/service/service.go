@@ -9,7 +9,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
 
@@ -37,6 +39,28 @@ type Service struct {
 func (s Service) GetID() string { return s.ID }
 func (s Service) GetCells() []string {
 	return []string{s.ID[:12], s.Name, s.Image, s.Mode, s.Replicas, s.Ports, s.Created, s.Updated}
+}
+
+func (s Service) GetStatusColor() (tcell.Color, tcell.Color) {
+	if strings.Contains(s.Replicas, "/") {
+		parts := strings.Split(s.Replicas, "/")
+		if len(parts) == 2 {
+			var running, desired int
+			fmt.Sscanf(parts[0], "%d", &running)
+			fmt.Sscanf(parts[1], "%d", &desired)
+
+			if desired == 0 && running == 0 {
+				return styles.ColorStatusGray, tcell.ColorBlack
+			} else if running < desired {
+				return styles.ColorStatusRed, tcell.ColorBlack
+			} else if running > desired {
+				return tcell.ColorMediumPurple, tcell.ColorBlack
+			} else if desired > 0 {
+				return styles.ColorStatusGreen, tcell.ColorBlack
+			}
+		}
+	}
+	return styles.ColorIdle, tcell.ColorBlack
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

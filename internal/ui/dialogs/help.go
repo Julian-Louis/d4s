@@ -11,50 +11,58 @@ func NewHelpView(app common.AppController) tview.Primitive {
 	helpTable := tview.NewTable()
 	helpTable.SetBorders(false)
 	helpTable.SetBackgroundColor(tcell.ColorBlack)
-	
-	// Format: Col1 | Col2
-	rows := [][]string{
-		{"[#ffb86c::b]GLOBAL", ""},
-		{"[#5f87ff]:[-]             Command", "[#5f87ff]?[-]             Help"},
-		{"[#5f87ff]/[-]             Filter", "[#5f87ff]esc[-]           Back/Clear"},
-		{"[#5f87ff]c[-]             Copy", "[#5f87ff]u[-]             Unselect All"},
-		{"", ""},
-		{"[#ffb86c::b]DOCKER", ""},
-		{"[#5f87ff]:c[-]            Containers", "[#5f87ff]:i[-]            Images"},
-		{"[#5f87ff]:v[-]            Volumes", "[#5f87ff]:n[-]            Networks"},
-		{"[#5f87ff]:p[-]            Compose", ""},
-		{"", ""},
-		{"[#ffb86c::b]SWARM", ""},
-		{"[#5f87ff]:s[-]            Services", "[#5f87ff]:no[-]           Nodes"},
-		{"", ""},
-		{"[#ffb86c::b]NAVIGATION", ""},
-		{"[#5f87ff]←/→[-], [#5f87ff]j/k[-]   Navigate", "[#5f87ff]enter[-]           Drill Down"},
-		{"[#5f87ff]shift ←/→[-]          Sort Column", "[#5f87ff]shift ↑/↓[-]          Toggle Order"},
+
+	type helpRow struct {
+		label1, alias1 string
+		label2, alias2 string
+	}
+
+	rows := []helpRow{
+		{label1: "[orange::b]GLOBAL"},
+		{label1: "Command", alias1: "[#5f87ff]:[-]", label2: "Help", alias2: "[#5f87ff]?[-]"},
+		{label1: "Filter", alias1: "[#5f87ff]/[-]", label2: "Back/Clear", alias2: "[#5f87ff]esc[-]"},
+		{label1: "Copy", alias1: "[#5f87ff]c[-]", label2: "Unselect All", alias2: "[#5f87ff]u[-]"},
+		{},
+		{label1: "[orange::b]DOCKER"},
+		{label1: "Containers", alias1: "[#5f87ff]:c[-]", label2: "Images", alias2: "[#5f87ff]:i[-]"},
+		{label1: "Volumes", alias1: "[#5f87ff]:v[-]", label2: "Networks", alias2: "[#5f87ff]:n[-]"},
+		{label1: "Compose", alias1: "[#5f87ff]:p[-]"},
+		{},
+		{label1: "[orange::b]SWARM"},
+		{label1: "Services", alias1: "[#5f87ff]:s[-]", label2: "Nodes", alias2: "[#5f87ff]:no[-]"},
+		{},
+		{label1: "[orange::b]NAVIGATION"},
+		{label1: "Navigate", alias1: "[#5f87ff]←/→[-], [#5f87ff]j/k[-]", label2: "Drill Down", alias2: "[#5f87ff]enter[-]"},
+		{label1: "Sort Column", alias1: "[#5f87ff]shift ←/→[-]", label2: "Toggle Order", alias2: "[#5f87ff]shift ↑/↓[-]"},
 	}
 
 	for i, row := range rows {
-		for j, text := range row {
-			if text == "" { continue }
-			
-			cell := tview.NewTableCell(text).
+		cells := []struct {
+			text      string
+			align     int
+			expansion int
+		}{
+			{text: row.label1, align: tview.AlignLeft, expansion: 0},
+			{text: row.alias1, align: tview.AlignRight, expansion: 0},
+			{text: "", align: tview.AlignLeft, expansion: 1}, // Column spacer
+			{text: row.label2, align: tview.AlignLeft, expansion: 0},
+			{text: row.alias2, align: tview.AlignRight, expansion: 0},
+		}
+
+		for j, cellData := range cells {
+			cell := tview.NewTableCell(cellData.text).
 				SetTextColor(tcell.ColorWhite).
-				SetAlign(tview.AlignLeft).
-				SetExpansion(1)
-			
-			// Add padding
-			if j == 0 {
-				cell.SetText("  " + text + "      ") // Left padding + spacer
-			} else {
-				cell.SetText("  " + text) // Left padding for second col
-			}
-			
+				SetAlign(cellData.align).
+				SetExpansion(cellData.expansion)
+
 			helpTable.SetCell(i, j, cell)
 		}
 	}
 
 	helpBox := tview.NewFrame(helpTable).
 		SetBorders(1, 1, 1, 1, 0, 0).
-		AddText(" Help ", true, tview.AlignCenter, styles.ColorTitle)
+		AddText(" Help ", true, tview.AlignCenter, styles.ColorTitle).
+		SetBorderPadding(0, 0, 2, 2)
 	helpBox.SetBorder(true).SetBorderColor(styles.ColorTitle).SetBackgroundColor(tcell.ColorBlack)
 
 	// Center Modal
@@ -76,6 +84,6 @@ func NewHelpView(app common.AppController) tview.Primitive {
 		}
 		return event
 	})
-	
+
 	return helpFlex
 }

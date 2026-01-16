@@ -114,7 +114,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting")
+		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -136,10 +136,13 @@ func Create(app common.AppController) {
 					app.SetFlashText(fmt.Sprintf("[red]Error creating network: %v", err))
 				} else {
 					app.SetFlashText(fmt.Sprintf("[green]Network %s created", text))
+					
+					// Highlight and Select the new resource
 					app.ScheduleViewHighlight(styles.TitleNetworks, func(res dao.Resource) bool {
 						net, ok := res.(dao.Network)
 						return ok && net.Name == text
-					}, styles.ColorStatusGreen, styles.ColorStatusGreenDarkBg, time.Second)
+					}, styles.ColorStatusGreen, styles.ColorStatusGreen, 2*time.Second)
+
 					app.RefreshCurrentView()
 				}
 			})

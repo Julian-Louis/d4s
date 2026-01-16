@@ -1,7 +1,6 @@
 package command
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -94,7 +93,7 @@ func NewCommandComponent(app common.AppController) *CommandComponent {
 		SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 	
 	c.SetBorder(true).
-		SetBorderColor(styles.ColorAccentAlt).
+		SetBorderColor(styles.ColorAccent).
 		SetBackgroundColor(styles.ColorBg)
 	
 	c.SetApplication(app.GetTviewApp())
@@ -210,15 +209,15 @@ func (c *CommandComponent) setupHandlers() {
 				c.App.SetActiveFilter(filter)
 				
 				// Flash Message Context
-				msg := ""
-				if filter != "" {
-					msg = fmt.Sprintf("Filter: %s", filter)
-					front, _ := c.App.GetPages().GetFrontPage()
-					if front == "inspect" {
-						msg = fmt.Sprintf("Search: %s", filter)
-					}
-				}
-				c.App.SetFlashText(msg)
+				// msg := ""
+				// if filter != "" {
+				// 	msg = fmt.Sprintf("Filter: %s", filter)
+				// 	front, _ := c.App.GetPages().GetFrontPage()
+				// 	if front == "inspect" {
+				// 		msg = fmt.Sprintf("Search: %s", filter)
+				// 	}
+				// }
+				// c.App.SetFlashText(msg)
 
 			} else {
 				// Command Mode
@@ -230,6 +229,7 @@ func (c *CommandComponent) setupHandlers() {
 			// Restore focus and hide cmdline
 			c.App.SetCmdLineVisible(false)
 			c.App.RestoreFocus()
+			c.App.RefreshCurrentView()
 		}
 	})
 }
