@@ -43,8 +43,22 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 		// No vertical borders for cleaner look
 		SetSeparator(' ')
 	
-	tv.SetBorder(false)
+	// Initial Loading State
+	tv.SetBorder(true)
+	tv.SetTitle(fmt.Sprintf(" %s [Loading...] ", title))
+	tv.SetTitleColor(styles.ColorTitle)
+	tv.SetBorderColor(styles.ColorTableBorder)
 	tv.SetBackgroundColor(styles.ColorBg)
+	
+	// Add centered Loading message
+	loadingCell := tview.NewTableCell("Loading...").
+		SetAlign(tview.AlignCenter).
+		SetTextColor(tcell.ColorWhite).
+		SetExpansion(1).
+		SetSelectable(false)
+	
+	tv.SetCell(0, 0, loadingCell)
+
 	// Disable default selected style to handle overlay manually
 	tv.SetSelectedStyle(tcell.StyleDefault)
 
