@@ -111,17 +111,24 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 				colorPrefix = sc[:idx]
 			}
 
+			effectiveColor := colorPrefix
+			if sc == "" {
+				effectiveColor = lastColorPrefix
+			}
+
 			// Determine if we need a new column
 			// New column if:
 			// 1. Current column is full
 			// 2. Color prefix changes (and current column is not empty)
-			if len(currentCol) >= maxPerCol || (len(currentCol) > 0 && lastColorPrefix != "" && colorPrefix != lastColorPrefix) {
+			if len(currentCol) >= maxPerCol || (len(currentCol) > 0 && lastColorPrefix != "" && effectiveColor != lastColorPrefix) {
 				columns = append(columns, currentCol)
 				currentCol = []string{}
 			}
 
 			currentCol = append(currentCol, sc)
-			lastColorPrefix = colorPrefix
+			if sc != "" {
+				lastColorPrefix = effectiveColor
+			}
 		}
 		// Append last column
 		if len(currentCol) > 0 {
