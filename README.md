@@ -32,13 +32,13 @@ brew install d4s
 ---
 ### Docker
 ```bash
-docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/jr-k/d4s:latest
+docker run --rm --pull always -it -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/jr-k/d4s:latest
 ```
 
 **You might want to create an alias for quicker usage. For example:**
 
 ```bash
-echo "alias d4s='docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/jr-k/d4s:latest'" >> ~/.zshrc
+echo "alias d4s='docker run --rm --pull always -it -v /var/run/docker.sock:/var/run/docker.sock ghcr.io/jr-k/d4s:latest'" >> ~/.zshrc
 ```
 *After running this, either restart your terminal or run `source ~/.zshrc` (or `source ~/.bashrc` for Bash) to enable the alias.*
 
