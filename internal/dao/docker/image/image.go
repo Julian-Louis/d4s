@@ -41,7 +41,31 @@ func (i Image) GetCells() []string {
 }
 
 func (i Image) GetStatusColor() (tcell.Color, tcell.Color) {
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (i Image) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "id":
+		return i.ID
+	case "tags":
+		return i.Tags
+	case "size":
+		return i.Size
+	case "containers":
+		return fmt.Sprintf("%d", i.Containers)
+	case "created":
+		return i.Created
+	}
+	return ""
+}
+
+func (i Image) GetDefaultColumn() string {
+	return "Tags"
+}
+
+func (i Image) GetDefaultSortColumn() string {
+	return "Tags" // Most recent first usually
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

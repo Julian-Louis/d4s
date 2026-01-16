@@ -25,12 +25,12 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 	tviewApp := app.GetTviewApp()
 
 	list := tview.NewList().
-		SetMainTextColor(tcell.ColorWhite).
-		SetSelectedTextColor(tcell.ColorWhite).
+		SetMainTextColor(styles.ColorWhite).
+		SetSelectedTextColor(styles.ColorWhite).
 		SetSelectedBackgroundColor(styles.ColorSelectBg).
 		SetHighlightFullLine(true)
 
-	list.SetBackgroundColor(tcell.ColorBlack)
+	list.SetBackgroundColor(styles.ColorBlack)
 
 	// Helper to close
 	closeModal := func() {
@@ -74,7 +74,7 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 		SetTitle(fmt.Sprintf(" %s ", title)).
 		SetTitleColor(styles.ColorTitle).
 		SetBorderColor(styles.ColorTitle).
-		SetBackgroundColor(tcell.ColorBlack)
+		SetBackgroundColor(styles.ColorBlack)
 
 	// Center on screen
 	modal := tview.NewFlex().

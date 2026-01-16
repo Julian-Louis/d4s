@@ -37,6 +37,7 @@ type AppController interface {
 	SetActiveScope(scope *Scope)
 	SetFilter(filter string)
 	SetFlashText(text string)
+	AppendFlash(text string)
 	RestoreFocus()
 
 	// Direct access for command component (needed for handlers)

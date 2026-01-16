@@ -2,6 +2,7 @@ package volume
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -38,7 +39,33 @@ func (v Volume) GetCells() []string {
 }
 
 func (v Volume) GetStatusColor() (tcell.Color, tcell.Color) {
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (v Volume) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "name":
+		return v.Name
+	case "driver":
+		return v.Driver
+	case "scope":
+		return v.Scope
+	case "mount":
+		return v.Mount
+	case "created":
+		return v.Created
+	case "size":
+		return v.Size
+	}
+	return ""
+}
+
+func (v Volume) GetDefaultColumn() string {
+	return "Name"
+}
+
+func (v Volume) GetDefaultSortColumn() string {
+	return "Name"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

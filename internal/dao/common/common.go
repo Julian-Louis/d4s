@@ -19,6 +19,12 @@ type Resource interface {
 	GetID() string
 	GetCells() []string
 	GetStatusColor() (statusColor tcell.Color, hoverFgColor tcell.Color)
+	// GetColumnValue returns the raw value for a specific column name
+	GetColumnValue(columnName string) string
+	// GetDefaultColumn returns the column name to use if no specific column is selected or relevant (for Copy)
+	GetDefaultColumn() string
+	// GetDefaultSortColumn returns the column name to use for default sorting
+	GetDefaultSortColumn() string
 }
 
 // HostStats represents basic host metrics

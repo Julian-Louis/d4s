@@ -50,17 +50,47 @@ func (s Service) GetStatusColor() (tcell.Color, tcell.Color) {
 			fmt.Sscanf(parts[1], "%d", &desired)
 
 			if desired == 0 && running == 0 {
-				return styles.ColorStatusGray, tcell.ColorBlack
+				return styles.ColorStatusGray, styles.ColorBlack
 			} else if running < desired {
-				return styles.ColorStatusOrange, tcell.ColorBlack
+				return styles.ColorStatusOrange, styles.ColorBlack
 			} else if running > desired {
-				return tcell.ColorMediumPurple, tcell.ColorBlack
+				return tcell.ColorMediumPurple, styles.ColorBlack
 			} else if desired > 0 {
-				return styles.ColorStatusGreen, tcell.ColorBlack
+				return styles.ColorStatusGreen, styles.ColorBlack
 			}
 		}
 	}
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (s Service) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "id":
+		return s.ID
+	case "name":
+		return s.Name
+	case "image":
+		return s.Image
+	case "mode":
+		return s.Mode
+	case "replicas":
+		return s.Replicas
+	case "ports":
+		return s.Ports
+	case "created":
+		return s.Created
+	case "updated":
+		return s.Updated
+	}
+	return ""
+}
+
+func (s Service) GetDefaultColumn() string {
+	return "Name"
+}
+
+func (s Service) GetDefaultSortColumn() string {
+	return "Name"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

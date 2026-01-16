@@ -24,6 +24,7 @@ type ResourceView struct {
 	Filter       string         // User Filter (via /)
 	SortCol      int
 	SortAsc      bool
+	FocusCol     int // Focused column for navigation/copy (independent of SortCol)
 	ColCount     int // To avoid out of bound when switching views
 	SelectedIDs  map[string]bool
 	ActionStates map[string]ActionState // ID -> Action State
@@ -75,9 +76,9 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 	tv.SetBackgroundColor(styles.ColorBg)
 
 	// Add centered Loading message
-	loadingCell := tview.NewTableCell("[orange]Freshly squeezing data 🍊[-]").
+	loadingCell := tview.NewTableCell("Freshly squeezing data 🍊").
 		SetAlign(tview.AlignCenter).
-		SetTextColor(tcell.ColorWhite).
+		SetTextColor(styles.ColorAccent).
 		SetExpansion(1).
 		SetSelectable(false)
 
@@ -91,7 +92,8 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 		App:                 app,
 		Title:               title,
 		SortAsc:             true, // Default ASC
-		SortCol:             0,    // Default first column
+		SortCol:             -1,   // Default undefined, will be resolved in Update
+		FocusCol:            0,    // Start focused on first column
 		SelectedIDs:         make(map[string]bool),
 		ActionStates:        make(map[string]ActionState),
 		transientHighlights: make(map[string]highlightEntry),
@@ -99,34 +101,69 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 
 	// Handle Selection Change for custom highlighting (Optimized)
 	tv.SetSelectionChangedFunc(func(row, col int) {
+		// Update internal FocusCol when user clicks or moves via other means
+		if col >= 0 {
+			v.FocusCol = col
+		}
 		v.updateCursorStyle(row)
 	})
 
 	// Navigation shortcuts
 	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		// Sorting Shortcuts
+		// Sorting Shortcuts: SHIFT + ARROWS changes SORT
 		if event.Modifiers()&tcell.ModShift != 0 {
 			switch event.Key() {
-			case tcell.KeyRight:
-				v.SortCol = (v.SortCol + 1) % v.ColCount
+			case tcell.KeyUp:
+				// Sort Ascending by Focused Column
+				v.SortCol = v.FocusCol
+				v.SortAsc = true
 				app.RefreshCurrentView()
 				return nil
-			case tcell.KeyLeft:
-				v.SortCol--
-				if v.SortCol < 0 {
-					v.SortCol = v.ColCount - 1
-				}
-				app.RefreshCurrentView()
-				return nil
-			case tcell.KeyUp, tcell.KeyDown: // Toggle Sort Order
-				v.SortAsc = !v.SortAsc
+			case tcell.KeyDown:
+				// Sort Descending by Focused Column
+				v.SortCol = v.FocusCol
+				v.SortAsc = false
 				app.RefreshCurrentView()
 				return nil
 			}
 		}
 
+		// Horizontal Scrolling (Focus Column) WITHOUT changing Sort (ARROWS only)
+		if event.Key() == tcell.KeyRight {
+			// Move FocusCol Right
+			if v.ColCount > 0 {
+				v.FocusCol = (v.FocusCol + 1) % v.ColCount
+				// Update selection in table to reflect focus change
+				// IMPORTANT: Do NOT call RefreshCurrentView here to avoid flickering/resorting
+				// Just redraw the table cursor/selection
+				row, _ := tv.GetSelection()
+				tv.Select(row, v.FocusCol)
+				
+				// Force redraw of headers to update underline
+				v.renderAll() 
+			}
+			return nil
+		}
+		if event.Key() == tcell.KeyLeft {
+			// Move FocusCol Left
+			if v.ColCount > 0 {
+				v.FocusCol--
+				if v.FocusCol < 0 {
+					v.FocusCol = v.ColCount - 1
+				}
+				// Update selection in table to reflect focus change
+				row, _ := tv.GetSelection()
+				tv.Select(row, v.FocusCol)
+				
+				// Force redraw of headers to update underline
+				v.renderAll()
+			}
+			return nil
+		}
+
 		// Pass through commands to App
 		switch event.Rune() {
+
 		case ' ': // Multi-select
 			row, _ := tv.GetSelection()
 			if row > 0 && row <= len(v.Data) {
@@ -199,6 +236,37 @@ func (v *ResourceView) Update(headers []string, data []dao.Resource) {
 	v.Headers = headers
 	v.ColCount = len(headers)
 	v.RawData = data
+
+	// Resolve default sort column if not set
+	if v.SortCol == -1 && len(data) > 0 {
+		defaultCol := data[0].GetDefaultSortColumn()
+		v.SortCol = 0 // Fallback
+		
+		for i, h := range headers {
+			if strings.EqualFold(h, defaultCol) {
+				v.SortCol = i
+				break
+			}
+		}
+		
+		// Optional: Smart sort direction based on column?
+		// e.g. Created -> Desc
+		if strings.EqualFold(defaultCol, "Created") || strings.EqualFold(defaultCol, "Age") {
+			v.SortAsc = false
+		}
+
+		// Also set FocusCol to default column if not manually set/modified yet
+		// We assume initial FocusCol is 0, so if we are at init, we check this.
+		// However, user might have navigated. But since this block runs only when SortCol is -1 (init), it's safe.
+		defaultFocus := data[0].GetDefaultColumn()
+		for i, h := range headers {
+			if strings.EqualFold(h, defaultFocus) {
+				v.FocusCol = i
+				break
+			}
+		}
+	}
+
 	v.Refilter()
 }
 
@@ -261,6 +329,24 @@ func (v *ResourceView) Refilter() {
 	v.renderAll()
 }
 
+// GetCurrentColumnSorted returns the name of the column currently used for sorting
+func (v *ResourceView) GetCurrentColumnSorted() string {
+	// Debug print or check headers
+	if v.SortCol >= 0 && v.SortCol < len(v.Headers) {
+		// Strip any styling or indicators from header name just in case, though headers usually clean strings in this list
+		return v.Headers[v.SortCol]
+	}
+	return ""
+}
+
+// GetCurrentColumnFocused returns the name of the column currently focused by the cursor
+func (v *ResourceView) GetCurrentColumnFocused() string {
+	if v.FocusCol >= 0 && v.FocusCol < len(v.Headers) {
+		return v.Headers[v.FocusCol]
+	}
+	return ""
+}
+
 func (v *ResourceView) renderAll() {
 	v.Table.Clear()
 
@@ -278,14 +364,15 @@ func (v *ResourceView) renderAll() {
 		}
 
 		cell := tview.NewTableCell(" " + title + " ").
-			SetTextColor(styles.ColorHeader).
 			SetBackgroundColor(styles.ColorBg).
 			SetSelectable(false).
 			SetExpansion(1)
 
-		// Highlight sorted column header
-		if i == v.SortCol {
-			cell.SetTextColor(styles.ColorHeaderSort)
+		// Color logic: Focus = Blue, Others = White
+		if i == v.FocusCol {
+			cell.SetTextColor(styles.ColorHeaderSort) // Blue
+		} else {
+			cell.SetTextColor(styles.ColorHeader) // White
 		}
 
 		// Align Right for numeric columns
@@ -323,12 +410,14 @@ func (v *ResourceView) renderAll() {
 		// OR current selection is 0 (header) which shouldn't happen for resource view
 		row, _ := v.Table.GetSelection()
 		if row <= 0 || row >= rowCount {
-			v.Table.Select(1, 0)
+			v.Table.Select(1, v.FocusCol) // Use FocusCol
+		} else {
+			// Ensure selection column matches FocusCol
+			v.Table.Select(row, v.FocusCol)
 		}
-		// If valid row is selected, let it stay selected (default Tview behavior)
 	} else {
 		// No data rows
-		v.Table.Select(0, 0)
+		v.Table.Select(0, v.FocusCol)
 	}
 
 	v.refreshStyles()
@@ -381,7 +470,7 @@ func (v *ResourceView) updateCursorStyle(cursorRow int) {
 	}
 
 	// Hover Effect: BG=StatusColor, FG=HoverFg
-	v.Table.SetSelectedStyle(tcell.StyleDefault.Bold(true).Background(statusColor).Foreground(styles.ColorBlack))
+	v.Table.SetSelectedStyle(tcell.StyleDefault.Foreground(statusColor).Reverse(true).Bold(true))
 }
 
 // updateRowStyle updates the style for a specific row
@@ -432,11 +521,11 @@ func (v *ResourceView) updateRowStyle(rowIndex int, item dao.Resource) {
 		cell.SetTextColor(statusColor)
 
 		
-		cell.SetBackgroundColor(tcell.ColorDefault)
+		cell.SetBackgroundColor(styles.ColorBg)
 	
 
 		if isSelected {
-			cell.SetBackgroundColor(tcell.ColorDefault)
+			cell.SetBackgroundColor(styles.ColorBg)
 			cell.SetTextColor(styles.ColorSelect)
 		}
 

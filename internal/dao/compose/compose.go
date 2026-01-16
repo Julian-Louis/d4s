@@ -47,17 +47,39 @@ func (cp ComposeProject) GetStatusColor() (tcell.Color, tcell.Color) {
 			fmt.Sscanf(parts[1], "%d", &desired)
 
 			if desired == 0 && running == 0 {
-				return styles.ColorStatusGray, tcell.ColorBlack
+				return styles.ColorStatusGray, styles.ColorBlack
 			} else if running < desired {
-				return styles.ColorStatusOrange, tcell.ColorBlack
+				return styles.ColorStatusOrange, styles.ColorBlack
 			} else if running > desired {
-				return tcell.ColorMediumPurple, tcell.ColorBlack
+				return tcell.ColorMediumPurple, styles.ColorBlack
 			} else if desired > 0 {
-				return styles.ColorIdle, tcell.ColorBlack
+				return styles.ColorIdle, styles.ColorBlack
 			}
 		}
 	}
-	return styles.ColorFg, tcell.ColorBlack
+	return styles.ColorFg, styles.ColorBlack
+}
+
+func (cp ComposeProject) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "project":
+		return cp.Name
+	case "ready":
+		return cp.Ready
+	case "status":
+		return cp.Status
+	case "config files":
+		return cp.ConfigFiles
+	}
+	return ""
+}
+
+func (cp ComposeProject) GetDefaultColumn() string {
+	return "PROJECT"
+}
+
+func (cp ComposeProject) GetDefaultSortColumn() string {
+	return "PROJECT"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

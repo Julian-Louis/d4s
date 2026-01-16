@@ -22,7 +22,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
 		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow]%s[white]\n\nType exactly: [red::b]Yes Please![white::-]", actionName, item))
-	text.SetBackgroundColor(tcell.ColorBlack)
+	text.SetBackgroundColor(styles.ColorBlack)
 
 	// Force Checkbox
 	force := false
@@ -30,13 +30,13 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 		SetDynamicColors(true).
 		SetText("Force:").
 		SetTextAlign(tview.AlignLeft)
-	checkboxLabel.SetBackgroundColor(tcell.ColorBlack)
+	checkboxLabel.SetBackgroundColor(styles.ColorBlack)
 
 	checkbox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignLeft).
 		SetText("[ ]")
-	checkbox.SetBackgroundColor(tcell.ColorBlack)
+	checkbox.SetBackgroundColor(styles.ColorBlack)
 
 	updateCheckbox := func(focused bool) {
 		text := "No"
@@ -60,18 +60,18 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 		SetDynamicColors(true).
 		SetText("Confirmation:").
 		SetTextAlign(tview.AlignLeft)
-	inputLabel.SetBackgroundColor(tcell.ColorBlack)
+	inputLabel.SetBackgroundColor(styles.ColorBlack)
 
 	input := tview.NewInputField().
 		SetFieldBackgroundColor(styles.ColorSelectBg).
 		SetFieldTextColor(tcell.ColorRed)
-	input.SetBackgroundColor(tcell.ColorBlack)
+	input.SetBackgroundColor(styles.ColorBlack)
 
 	// Form layout: 2 columns (label | widget) with fixed label width and padding
 
 	// Helper for empty box
 	empty := func(w int) tview.Primitive {
-		return tview.NewBox().SetBackgroundColor(tcell.ColorBlack)
+		return tview.NewBox().SetBackgroundColor(styles.ColorBlack)
 	}
 
 	// Row 1: Checkbox
@@ -106,7 +106,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 		SetTitle(" Are you sure? ").
 		SetTitleColor(tcell.ColorRed).
 		SetBorderColor(tcell.ColorRed).
-		SetBackgroundColor(tcell.ColorBlack)
+		SetBackgroundColor(styles.ColorBlack)
 
 	// Center on screen
 	modal := tview.NewFlex().

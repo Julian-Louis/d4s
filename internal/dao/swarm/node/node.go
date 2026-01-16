@@ -43,16 +43,44 @@ func (n Node) GetStatusColor() (tcell.Color, tcell.Color) {
 	// avail := strings.ToLower(n.Avail)
 
 	if strings.Contains(status, "ready") || strings.Contains(status, "active") {
-		return styles.ColorStatusGreen, tcell.ColorBlack
+		return styles.ColorStatusGreen, styles.ColorBlack
 	}
 	if strings.Contains(status, "down") || strings.Contains(status, "drain") || strings.Contains(status, "disconnected") {
-		return styles.ColorStatusRed, tcell.ColorBlack
+		return styles.ColorStatusRed, styles.ColorBlack
 	}
 	if strings.Contains(status, "unknown") {
-		return styles.ColorStatusOrange, tcell.ColorBlack
+		return styles.ColorStatusOrange, styles.ColorBlack
 	}
 	
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (n Node) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "id":
+		return n.ID
+	case "hostname":
+		return n.Hostname
+	case "status":
+		return n.Status
+	case "avail":
+		return n.Avail
+	case "role":
+		return n.Role
+	case "version":
+		return n.Version
+	case "created":
+		return n.Created
+	}
+	return ""
+}
+
+func (n Node) GetDefaultColumn() string {
+	return "Hostname"
+}
+
+func (n Node) GetDefaultSortColumn() string {
+	return "Hostname"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

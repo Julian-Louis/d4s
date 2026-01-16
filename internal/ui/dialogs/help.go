@@ -10,7 +10,7 @@ import (
 func NewHelpView(app common.AppController) tview.Primitive {
 	helpTable := tview.NewTable()
 	helpTable.SetBorders(false)
-	helpTable.SetBackgroundColor(tcell.ColorBlack)
+	helpTable.SetBackgroundColor(styles.ColorBlack)
 
 	// Format: Col1 | Col2
 	rows := [][]string{
@@ -36,7 +36,7 @@ func NewHelpView(app common.AppController) tview.Primitive {
 		// Column 1
 		text1 := row[0]
 		cell1 := tview.NewTableCell(text1).
-			SetTextColor(tcell.ColorWhite).
+			SetTextColor(styles.ColorWhite).
 			SetAlign(tview.AlignLeft).
 			SetExpansion(1)
 		helpTable.SetCell(i, 0, cell1)
@@ -50,7 +50,7 @@ func NewHelpView(app common.AppController) tview.Primitive {
 			text2 = row[1]
 		}
 		cell2 := tview.NewTableCell(text2).
-			SetTextColor(tcell.ColorWhite).
+			SetTextColor(styles.ColorWhite).
 			SetAlign(tview.AlignLeft).
 			SetExpansion(1)
 		helpTable.SetCell(i, 2, cell2)
@@ -59,7 +59,7 @@ func NewHelpView(app common.AppController) tview.Primitive {
 	helpBox := tview.NewFrame(helpTable).
 		SetBorders(1, 1, 1, 1, 4, 4).
 		AddText(" Help ", true, tview.AlignCenter, styles.ColorTitle)
-	helpBox.SetBorder(true).SetBorderColor(styles.ColorTitle).SetBackgroundColor(tcell.ColorBlack)
+	helpBox.SetBorder(true).SetBorderColor(styles.ColorTitle).SetBackgroundColor(styles.ColorBlack)
 
 	// Center Modal
 	helpFlex := tview.NewFlex().

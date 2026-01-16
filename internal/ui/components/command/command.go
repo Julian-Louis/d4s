@@ -88,7 +88,7 @@ func NewCommandComponent(app common.AppController) *CommandComponent {
 	c := NewAutocompleteInputField()
 	c.InputField.
 		SetFieldBackgroundColor(styles.ColorBg).
-		SetLabelColor(tcell.ColorWhite).
+		SetLabelColor(styles.ColorWhite).
 		SetFieldTextColor(styles.ColorFg).
 		SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 	

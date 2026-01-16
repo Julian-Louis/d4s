@@ -18,11 +18,11 @@ func ShowInput(app common.AppController, title, label, initialText string, onDon
 
 	input := tview.NewInputField().
 		SetFieldBackgroundColor(styles.ColorSelectBg).
-		SetFieldTextColor(tcell.ColorWhite).
+		SetFieldTextColor(styles.ColorWhite).
 		SetLabel(" " + label). // Padding label
-		SetLabelColor(tcell.ColorWhite).
+		SetLabelColor(styles.ColorWhite).
 		SetText(initialText)
-	input.SetBackgroundColor(tcell.ColorBlack)
+	input.SetBackgroundColor(styles.ColorBlack)
 	
 	// Layout
 	content := tview.NewFlex().
@@ -31,7 +31,7 @@ func ShowInput(app common.AppController, title, label, initialText string, onDon
 		AddItem(input, 1, 1, true). // Input line
 		AddItem(nil, 1, 1, false)  // Bottom padding
 	
-	content.SetBackgroundColor(tcell.ColorBlack)
+	content.SetBackgroundColor(styles.ColorBlack)
 
 	// Main Frame with Border
 	frame := tview.NewFrame(content).
@@ -40,7 +40,7 @@ func ShowInput(app common.AppController, title, label, initialText string, onDon
 		SetTitle(" " + title + " ").
 		SetTitleColor(styles.ColorTitle).
 		SetBorderColor(styles.ColorTitle).
-		SetBackgroundColor(tcell.ColorBlack)
+		SetBackgroundColor(styles.ColorBlack)
 
 	// Center on screen
 	modal := tview.NewFlex().

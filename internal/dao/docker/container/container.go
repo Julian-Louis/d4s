@@ -73,27 +73,65 @@ func (c Container) GetStatusColor() (tcell.Color, tcell.Color) {
 
 	// Fallback to parsed status if State is generic
 	if strings.Contains(strings.ToLower(c.Status), "starting") {
-		return styles.ColorStatusBlue, tcell.ColorBlack
+		return styles.ColorStatusBlue, styles.ColorBlack
 	}
 
 	switch lower {
 	case "running":
 		if strings.Contains(strings.ToLower(c.Status), "healthy") {
-			//return styles.ColorStatusGreen, tcell.ColorBlack
+			//return styles.ColorStatusGreen, styles.ColorBlack
 		} else if strings.Contains(strings.ToLower(c.Status), "unhealthy") {
-			return styles.ColorStatusRed, tcell.ColorBlack
+			return styles.ColorStatusRed, styles.ColorBlack
 		}
 	case "paused":
-		return styles.ColorStatusYellow, tcell.ColorBlack
+		return styles.ColorStatusYellow, styles.ColorBlack
 	case "restarting":
-		return styles.ColorStatusOrange, tcell.ColorBlack
+		return styles.ColorStatusOrange, styles.ColorBlack
 	case "exited", "dead":
-		return styles.ColorStatusGray, tcell.ColorBlack
+		return styles.ColorStatusGray, styles.ColorBlack
 	case "created":
-		return styles.ColorStatusBlue, tcell.ColorBlack
+		return styles.ColorStatusBlue, styles.ColorBlack
 	}
 
-	return styles.ColorIdle, tcell.ColorBlack
+	return styles.ColorIdle, styles.ColorBlack
+}
+
+func (c Container) GetColumnValue(column string) string {
+	switch strings.ToLower(column) {
+	case "id":
+		return c.ID
+	case "names":
+		return c.Names
+	case "image":
+		return c.Image
+	case "ip":
+		return c.IP
+	case "status":
+		return c.Status
+	case "age":
+		return c.Age
+	case "ports":
+		return c.Ports
+	case "cpu":
+		return c.CPU
+	case "mem":
+		return c.Mem
+	case "compose":
+		return c.Compose
+	case "cmd":
+		return c.Cmd
+	case "created":
+		return c.Created
+	}
+	return ""
+}
+
+func (c Container) GetDefaultColumn() string {
+	return "Name"
+}
+
+func (c Container) GetDefaultSortColumn() string {
+	return "Name"
 }
 
 func (m *Manager) updateStats(containers []types.Container) {

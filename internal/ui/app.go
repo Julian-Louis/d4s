@@ -328,6 +328,13 @@ func (a *App) SetFlashText(text string) {
 	a.Flash.SetText(text)
 }
 
+func (a *App) AppendFlash(text string) {
+	a.Flash.Append(text)
+	
+	// Optional: Auto-clear the appended part after delay? 
+	// For now let's keep it simple, it will be cleared on next full refresh
+}
+
 func (a *App) RestoreFocus() {
 	page, _ := a.Pages.GetFrontPage()
 	if view, ok := a.Views[page]; ok {
