@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"sync"
-	"os"
 	"time"
 
 	"runtime/debug"
@@ -327,18 +326,18 @@ func (a *App) initUI() {
 			return nil
 		}
 
-		
-		
-		if event.Modifiers() != 0 {
-			logMsg := fmt.Sprintf("Key: %v (rune: %q) | Modifiers: %v\n", event.Key(), event.Rune(), event.Modifiers())
-			f, err := os.OpenFile("d4s.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err == nil {
-				_, _ = f.WriteString(logMsg)
-				_ = f.Close()
-			}
+		// logMsg := fmt.Sprintf("Key: %v (rune: %q) | Modifiers: %v\n", event.Key(), event.Rune(), event.Modifiers())
+		// f, err := os.OpenFile("d4s.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		// if err == nil {
+		// 	_, _ = f.WriteString(logMsg)
+		// 	_ = f.Close()
+		// }
+
+		if event.Key() == tcell.KeyCtrlE && event.Modifiers() == tcell.ModCtrl {
+			return nil
 		}
 
-		if event.Key() == tcell.KeyHome || (event.Key() == tcell.KeyLeft || event.Key() == tcell.KeyF13) {
+		if event.Key() == tcell.KeyHome || (event.Key() == tcell.KeyCtrlA) && event.Modifiers() == tcell.ModCtrl {
 			current, _ := a.Pages.GetFrontPage()
 			if current == styles.TitleAliases {
 				// If already on aliases, go back to previous view
