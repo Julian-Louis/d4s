@@ -40,8 +40,7 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 
 ### Homebrew (MacOS / Linux)
 ```bash
-brew tap jr-k/d4s
-brew install d4s
+brew install jr-k/d4s/d4s
 ```
 ---
 ### Docker
@@ -133,3 +132,5 @@ Meet ( •_•) **Citrus**, our vitamin-packed helper ensuring your containers s
 
 ---
 *Built with Go & Tview. Inspired by the legendary K9s.*
+*d4s is made possible by a rich set of open source projects and libraries. We are truly thankful to the OSS contributors who generously share their time, care, and effort to support and allow this work.*
+
