@@ -47,7 +47,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string, col
 			}
 		}
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 
 		a.TviewApp.QueueUpdateDraw(func() {
 			for _, id := range ids {
@@ -66,7 +66,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string, col
 					plural = ""
 				}
 				// Show success message for 3 seconds
-				a.SetFlashMessage(fmt.Sprintf(" [#50fa7b]%s %d item%s done", actionName, len(ids), plural), 2*time.Second)
+				a.SetFlashMessage(fmt.Sprintf(" [#50fa7b]%s %d item%s done", actionName, len(ids), plural), 1*time.Second)
 				
 				// Clear selection on success?
 				view.SelectedIDs = make(map[string]bool)

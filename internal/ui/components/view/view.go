@@ -288,6 +288,24 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 
 // Update triggers a refresh with new data
 func (v *ResourceView) Update(headers []string, data []dao.Resource) {
+	// Preserve items in ActionState (e.g. Deleting) if they are missing from new data
+	// This ensures we see the red "deleting" state even if the backend removed it already
+	if len(v.ActionStates) > 0 {
+		newIDs := make(map[string]bool)
+		for _, item := range data {
+			newIDs[item.GetID()] = true
+		}
+
+		for _, item := range v.RawData {
+			id := item.GetID()
+			if _, inAction := v.ActionStates[id]; inAction {
+				if !newIDs[id] {
+					data = append(data, item)
+				}
+			}
+		}
+	}
+
 	v.Headers = headers
 	v.ColCount = len(headers)
 	v.RawData = data
