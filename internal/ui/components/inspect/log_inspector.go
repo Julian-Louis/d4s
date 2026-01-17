@@ -82,7 +82,6 @@ func (i *LogInspector) GetStatus() string {
 
 	parts := []string{}
 	parts = append(parts, fmtStatus("[::b]Autoscroll[::-]", i.AutoScroll))
-	parts = append(parts, fmtStatus("[::b]FullScreen[::-]", false))
 	parts = append(parts, fmtStatus("[::b]Timestamps[::-]", i.Timestamps))
 	parts = append(parts, fmtStatus("[::b]Wrap[::-]", i.Wrap))
 	parts = append(parts, fmt.Sprintf("[#5f87ff::b]Since:[-::-][white]%s[-]", i.sinceLabel))
@@ -134,19 +133,20 @@ func (i *LogInspector) OnMount(app common.AppController) {
 		SetTextAlign(tview.AlignCenter).
 		SetWrap(false).
 		SetText(i.GetStatus())
-	i.HeaderView.SetBackgroundColor(styles.ColorBg)
+	i.HeaderView.SetBackgroundColor(tcell.ColorBlack)
 
 	i.TextView = tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(true).
-		SetWordWrap(i.Wrap)
+		SetWordWrap(i.Wrap).
+		SetTextColor(styles.ColorIdle)
 	
 	i.TextView.SetChangedFunc(func() {
 		if i.AutoScroll {
 			i.TextView.ScrollToEnd()
 		}
 	})
-	i.TextView.SetBackgroundColor(styles.ColorBg)
+	i.TextView.SetBackgroundColor(tcell.ColorBlack)
 
 	i.Flex = tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -156,8 +156,9 @@ func (i *LogInspector) OnMount(app common.AppController) {
 	i.Flex.SetBorder(true).
 		SetTitle(i.GetTitle()).
 		SetTitleColor(styles.ColorTitle).
-		SetBackgroundColor(styles.ColorBg).
-		SetBorderPadding(0, 0, 1, 1)
+		SetBorderColor(styles.ColorIdle).
+		SetBackgroundColor(tcell.ColorBlack).
+		SetBorderPadding(0, 0, 0, 0)
 		
 	i.startStreaming()
 }
@@ -384,6 +385,8 @@ func (i *LogInspector) startStreaming() {
 						line = fmt.Sprintf("[gray]%s[-] %s", parts[0], parts[1])
 					}
 				}
+
+				line = " [#89cefa]" + line + " "
 				
 				buffer = append(buffer, line)
 				
