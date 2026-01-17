@@ -37,6 +37,8 @@ func (a *App) ExecuteCmd(cmd string) {
 		switchToRoot(styles.TitleNodes)
 	case "p", "cp", "compose", "projects":
 		switchToRoot(styles.TitleCompose)
+	case "a", "al", "alias", "aliases":
+		switchToRoot(styles.TitleAliases)
 	case "h", "help", "?":
 		a.Pages.AddPage("help", a.Help, true, true)
 	default:
@@ -50,6 +52,12 @@ func (a *App) SwitchTo(viewName string) {
 
 func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 	if v, ok := a.Views[viewName]; ok {
+		// Record previous view
+		current, _ := a.Pages.GetFrontPage()
+		if current != "" && current != viewName {
+			a.PreviousView = current
+		}
+
 		// Reset Selection to top when EXPLICITLY requested (default behavior for navigation)
 		if reset && v.Table.GetRowCount() > 1 {
 			v.Table.Select(1, 0)
