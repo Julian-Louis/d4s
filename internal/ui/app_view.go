@@ -15,6 +15,82 @@ func (a *App) RefreshCurrentView() {
 	
 	// Handle Inspector Filtering
 	if page == "inspect" {
+		if a.ActiveInspector != nil {
+			// Construct breadcrumb manually for inspector
+			actionName := "inspect"
+
+			switch v := a.ActiveInspector.(type) {
+			case *inspect.LogInspector:
+				actionName = "logs"
+			case *inspect.TextInspector:
+				actionName = strings.ToLower(v.Action)
+				// Simplify "Describe container" to "describe" in breadcrumb
+				if strings.Contains(actionName, " ") {
+					parts := strings.Split(actionName, " ")
+					if len(parts) > 0 {
+						actionName = parts[0]
+					}
+				}
+			case *inspect.StatsInspector:
+				actionName = "stats"
+			}
+
+			status := ""
+
+			// Start with base context
+			// Use CurrentView if available, or ActiveScope logic
+			baseView := a.CurrentView
+			if baseView == "" {
+				baseView = "containers" // Default fallback
+			}
+			
+			// If we have ActiveScope, it means we are in drilled down mode
+			if a.ActiveScope != nil {
+				// E.g. <compose> <containers> <logs>
+				scopes := []string{a.ActiveScope.OriginView, baseView, actionName}
+				
+				status += " "
+				for i, s := range scopes {
+					color := "#00ffff" // cyan
+					if i == len(scopes)-1 {
+						color = "orange"
+					}
+					firstChar := ""
+					if i > 0 {
+						firstChar = " "
+					}
+					status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
+					if i < len(scopes)-1 {
+						status += "[black:black]"
+					}
+				}
+				status += "[-:-:-]"
+			} else {
+				// E.g. <containers> <logs>
+				scopes := []string{baseView, actionName}
+				
+				status += " "
+				for i, s := range scopes {
+					color := "#00ffff" // cyan
+					if i == len(scopes)-1 {
+						color = "orange"
+					}
+					firstChar := ""
+					if i > 0 {
+						firstChar = " "
+					}
+					status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
+					if i < len(scopes)-1 {
+						status += "[black:black]"
+					}
+				}
+				status += "[-:-:-]"
+			}
+
+			if !a.IsFlashLocked() {
+				a.Flash.SetText(status)
+			}
+		}
 		return
 	}
 

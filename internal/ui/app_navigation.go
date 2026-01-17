@@ -57,7 +57,8 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 		if current != "" && current != viewName {
 			a.PreviousView = current
 		}
-
+		// Always update CurrentView
+		a.CurrentView = viewName
 		// Reset Selection to top when EXPLICITLY requested (default behavior for navigation)
 		if reset && v.Table.GetRowCount() > 1 {
 			v.Table.Select(1, 0)

@@ -48,6 +48,7 @@ type App struct {
 	ActiveScope     *common.Scope
 	ActiveInspector common.Inspector
 	PreviousView    string
+	CurrentView     string // Track current view name before inspector
 
 	// Concurrency
 	pauseMx    sync.RWMutex
@@ -504,6 +505,9 @@ func (a *App) OpenInspector(inspector common.Inspector) {
 	a.Pages.AddPage("inspect", inspector.GetPrimitive(), true, true)
 	a.TviewApp.SetFocus(inspector.GetPrimitive())
 	a.UpdateShortcuts()
+	
+	// Force immediate update of breadcrumb/UI
+	a.RefreshCurrentView()
 }
 
 func (a *App) CloseInspector() {
@@ -518,6 +522,9 @@ func (a *App) CloseInspector() {
 
 	a.RestoreFocus()
 	a.UpdateShortcuts()
+	
+	// Force immediate update of breadcrumb/UI
+	a.RefreshCurrentView()
 }
 
 func (a *App) ActionPause() {

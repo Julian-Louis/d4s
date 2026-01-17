@@ -151,7 +151,7 @@ func Env(app common.AppController, v *view.ResourceView) {
 		lines = append(lines, line)
 	}
 	
-	app.OpenInspector(inspect.NewTextInspector("Environment", subject, strings.Join(lines, "\n"), "env"))
+	app.OpenInspector(inspect.NewTextInspector("Environment container", subject, strings.Join(lines, "\n"), "env"))
 }
 
 func Stats(app common.AppController, v *view.ResourceView) {
