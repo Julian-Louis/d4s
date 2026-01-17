@@ -118,6 +118,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 			if item.GetID() == ids[0] {
 				cells := item.GetCells()
 				if len(cells) > 1 {
+					// Inside Confirmation Modal
 					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
 				}
 			}
@@ -130,7 +131,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
+		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -140,7 +141,7 @@ func Env(app common.AppController, v *view.ResourceView) {
 
 	env, err := app.GetDocker().GetContainerEnv(id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Env Error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -237,7 +238,7 @@ func Describe(app common.AppController, v *view.ResourceView) {
 
 	content, err := app.GetDocker().Inspect("container", id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -327,7 +328,7 @@ func RestartOrStart(app common.AppController, v *view.ResourceView) {
 			if strings.Contains(lowerStatus, "exited") || strings.Contains(lowerStatus, "created") {
 				app.PerformAction(func(id string) error {
 					return app.GetDocker().StartContainer(id)
-				}, "Starting", styles.ColorStatusBlue)
+				}, "starting", styles.ColorStatusBlue)
 				return
 			}
 		}
@@ -336,25 +337,25 @@ func RestartOrStart(app common.AppController, v *view.ResourceView) {
 	// Default to Restart
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().RestartContainer(id)
-	}, "Restarting", styles.ColorStatusOrange)
+	}, "restarting", styles.ColorStatusOrange)
 }
 
 func StopAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().StopContainer(id)
-	}, "Stopping", styles.ColorStatusRed)
+	}, "stopping", styles.ColorStatusRed)
 }
 
 func PruneAction(app common.AppController) {
 	dialogs.ShowConfirmation(app, "PRUNE", "Containers", func(force bool) {
-		app.SetFlashText("[yellow]Pruning Containers...")
+		app.SetFlashPending("pruning containers...")
 		app.RunInBackground(func() {
 			err := Prune(app)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Prune Error: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText("[green]Pruned Containers")
+					app.SetFlashSuccess("pruned containers")
 					app.RefreshCurrentView()
 				}
 			})

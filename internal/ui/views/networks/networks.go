@@ -26,7 +26,7 @@ func Fetch(app common.AppController) ([]dao.Resource, error) {
 func Inspect(app common.AppController, id string) {
 	content, err := app.GetDocker().Inspect("network", id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect Error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -84,14 +84,14 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 
 func PruneAction(app common.AppController) {
 	dialogs.ShowConfirmation(app, "PRUNE", "Networks", func(force bool) {
-		app.SetFlashText("[yellow]Pruning Networks...")
+		app.SetFlashPending("pruning networks...")
 		app.RunInBackground(func() {
 			err := Prune(app)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Prune Error: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText("[green]Pruned Networks")
+					app.SetFlashSuccess("pruned networks")
 					app.RefreshCurrentView()
 				}
 			})
@@ -114,7 +114,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
+		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -128,14 +128,14 @@ func Remove(id string, force bool, app common.AppController) error {
 
 func Create(app common.AppController) {
 	dialogs.ShowInput(app, "Create Network", "Network Name: ", "", func(text string) {
-		app.SetFlashText(fmt.Sprintf("[yellow]Creating network %s...", text))
+		app.SetFlashPending(fmt.Sprintf("creating network %s...", text))
 		app.RunInBackground(func() {
 			err := app.GetDocker().CreateNetwork(text)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Error creating network: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText(fmt.Sprintf("[green]Network %s created", text))
+					app.SetFlashSuccess(fmt.Sprintf("network %s created", text))
 					
 					// Highlight and Select the new resource
 					app.ScheduleViewHighlight(styles.TitleNetworks, func(res dao.Resource) bool {

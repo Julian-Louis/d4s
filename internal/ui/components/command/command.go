@@ -217,17 +217,6 @@ func (c *CommandComponent) setupHandlers() {
 				
 				// Apply Filter (even if empty, to clear it)
 				c.App.SetActiveFilter(filter)
-				
-				// Flash Message Context
-				// msg := ""
-				// if filter != "" {
-				// 	msg = fmt.Sprintf("Filter: %s", filter)
-				// 	front, _ := c.App.GetPages().GetFrontPage()
-				// 	if front == "inspect" {
-				// 		msg = fmt.Sprintf("Search: %s", filter)
-				// 	}
-				// }
-				// c.App.SetFlashText(msg)
 
 			} else {
 				// Command Mode

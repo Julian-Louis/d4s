@@ -167,9 +167,9 @@ func (t *TextViewer) highlightContent(content, lang string) string {
 
 func (t *TextViewer) copyToClipboard() {
 	if err := clipboard.WriteAll(t.content); err != nil {
-		t.App.SetFlashText(fmt.Sprintf("[red]Copy error: %v", err))
+		t.App.AppendFlashError(fmt.Sprintf("%v", err))
 	} else {
-		t.App.SetFlashText(fmt.Sprintf(" [black:#50fa7b] <copied: %d bytes>[-] ", len(t.content)))
+		t.App.AppendFlashSuccess(fmt.Sprintf("copied %d bytes", len(t.content)))
 	}
 }
 

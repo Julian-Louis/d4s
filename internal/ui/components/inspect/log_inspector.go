@@ -270,7 +270,7 @@ func (i *LogInspector) startStreaming() {
 
 	if i.TextView != nil {
 		i.TextView.Clear()
-		i.TextView.SetText("[yellow]Loading logs...\n")
+		i.TextView.SetText(" [orange]Loading logs...\n")
 	}
 
 	// Channels for buffering
@@ -385,13 +385,32 @@ func (i *LogInspector) startStreaming() {
 					return
 				}
 				
-				// Filter logic
+				// Filter logic (supports negation with ^)
 				if i.filter != "" {
-					if !strings.Contains(line, i.filter) {
-						continue
+					filterTerm := i.filter
+					negate := false
+					if strings.HasPrefix(filterTerm, "^") {
+						negate = true
+						filterTerm = strings.TrimPrefix(filterTerm, "^")
 					}
-					// Highlight
-					line = strings.ReplaceAll(line, i.filter, fmt.Sprintf("[yellow]%s[-]", i.filter))
+
+					// If negate and term is empty (input is "^"), treat as match all (show all)
+					if negate && filterTerm == "" {
+						// no-op, show line
+					} else {
+						contains := strings.Contains(line, filterTerm)
+						if negate {
+							if contains {
+								continue
+							}
+						} else {
+							if !contains {
+								continue
+							}
+							// Highlight for positive match only
+							line = strings.ReplaceAll(line, filterTerm, fmt.Sprintf("[yellow]%s[-]", filterTerm))
+						}
+					}
 				}
 				
 				// Timestamp Coloring

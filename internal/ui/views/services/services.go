@@ -101,7 +101,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
+		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -131,14 +131,14 @@ func ScaleZero(app common.AppController, v *view.ResourceView) {
 		scaleAction := func(id string) error {
 			return app.GetDocker().ScaleService(id, 0)
 		}
-		app.PerformAction(scaleAction, "Scaling to 0", styles.ColorStatusOrange)
+		app.PerformAction(scaleAction, "scaling to zero", styles.ColorStatusOrange)
 	})
 }
 
 func Inspect(app common.AppController, id string) {
 	content, err := app.GetDocker().Inspect("service", id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -175,19 +175,19 @@ func Scale(app common.AppController, id string, currentReplicas string) {
 	dialogs.ShowInput(app, "Scale Service", "Replicas:", currentReplicas, func(text string) {
 		replicas, err := strconv.ParseUint(text, 10, 64)
 		if err != nil {
-			app.SetFlashText("[red]Invalid number")
+			app.SetFlashError("invalid number")
 			return
 		}
 		
-		app.SetFlashText(fmt.Sprintf("[yellow]Scaling %s to %d...", id, replicas))
+		app.SetFlashPending(fmt.Sprintf("scaling %s to %d...", id, replicas))
 		
 		app.RunInBackground(func() {
 			err := app.GetDocker().ScaleService(id, replicas)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Scale Error: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText(fmt.Sprintf("[green]Service scaled to %d", replicas))
+					app.SetFlashSuccess(fmt.Sprintf("service scaled to %d", replicas))
 					app.RefreshCurrentView()
 				}
 			})

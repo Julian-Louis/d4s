@@ -10,7 +10,6 @@ import (
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/components/view"
 	"github.com/jr-k/d4s/internal/ui/dialogs"
-	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
 func (a *App) PerformAction(action func(id string) error, actionName string, color tcell.Color) {
@@ -37,7 +36,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string, col
 	if len(ids) == 1 {
 		plural = ""
 	}
-	a.SetFlashMessage(fmt.Sprintf(" [red]%s %d item%s...", actionName, len(ids), plural), 10*time.Minute)
+	a.AppendFlashPending(fmt.Sprintf("%s %d item%s...", actionName, len(ids), plural))
 
 	a.RunInBackground(func() {
 		var errs []string
@@ -58,7 +57,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string, col
 			a.StartAutoRefresh()
 
 			if len(errs) > 0 {
-				a.SetFlashMessage(fmt.Sprintf(" [red]%s completed with errors", actionName), 3*time.Second)
+				a.AppendFlashError(fmt.Sprintf("%s completed with errors", actionName))
 				dialogs.ShowResultModal(a, actionName, len(ids)-len(errs), errs)
 			} else {
 				plural := "s"
@@ -66,7 +65,7 @@ func (a *App) PerformAction(action func(id string) error, actionName string, col
 					plural = ""
 				}
 				// Show success message for 3 seconds
-				a.SetFlashMessage(fmt.Sprintf(" [#50fa7b]%s %d item%s done", actionName, len(ids), plural), 1*time.Second)
+				a.AppendFlashSuccess(fmt.Sprintf("%s %d item%s done", actionName, len(ids), plural))
 				
 				// Clear selection on success?
 				view.SelectedIDs = make(map[string]bool)
@@ -116,78 +115,6 @@ func (a *App) getSelectedID(v *view.ResourceView) (string, error) {
 	}
 
 	return v.Data[dataIndex].GetID(), nil
-}
-
-func (a *App) PerformDelete() {
-	page, _ := a.Pages.GetFrontPage()
-	view, ok := a.Views[page]
-
-	if !ok || view.RemoveFunc == nil {
-		return
-	}
-
-	action := view.RemoveFunc
-
-	ids, err := a.getTargetIDs(view)
-	if err != nil {
-		return
-	}
-
-	label := ids[0]
-	if len(ids) == 1 {
-		row, _ := view.Table.GetSelection()
-		if row > 0 && row <= len(view.Data) {
-			item := view.Data[row-1]
-			if item.GetID() == ids[0] {
-				cells := item.GetCells()
-				if len(cells) > 1 {
-					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
-				}
-			}
-		}
-	} else if len(ids) > 1 {
-		label = fmt.Sprintf("%d items", len(ids))
-	}
-
-	dialogs.ShowConfirmation(a, "DELETE", label, func(force bool) {
-		simpleAction := func(id string) error {
-			return action(id, force, a)
-		}
-		// view.HighlightIDs(ids, styles.ColorStatusRed, styles.ColorStatusRedDarkBg, time.Second)
-		// view.DeferRefresh(time.Second)
-		a.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
-	})
-	a.UpdateShortcuts()
-}
-
-func (a *App) PerformPrune() {
-	page, _ := a.Pages.GetFrontPage()
-	view, ok := a.Views[page]
-
-	if !ok || view.PruneFunc == nil {
-		a.Flash.SetText(fmt.Sprintf("[yellow]Prune not available for %s", page))
-		return
-	}
-
-	action := view.PruneFunc
-	// Capitalize page name for display (e.g. "images" -> "Images")
-	name := strings.Title(page)
-
-	dialogs.ShowConfirmation(a, "PRUNE", name, func(force bool) {
-		a.Flash.SetText(fmt.Sprintf("[yellow]Pruning %s...", name))
-		a.RunInBackground(func() {
-			err := action(a)
-			a.TviewApp.QueueUpdateDraw(func() {
-				if err != nil {
-					a.Flash.SetText(fmt.Sprintf("[red]Prune Error: %v", err))
-				} else {
-					a.Flash.SetText(fmt.Sprintf("[green]Pruned %s", name))
-					a.RefreshCurrentView()
-				}
-			})
-		})
-	})
-	a.UpdateShortcuts()
 }
 
 func (a *App) PerformCopy() {
@@ -253,13 +180,13 @@ func (a *App) PerformCopy() {
 
 	// 5. Copy
 	if err := a.CopyToClipboard(value); err != nil {
-		a.AppendFlash(fmt.Sprintf("[red]Copy error: %v", err))
+		a.AppendFlashError(fmt.Sprintf("%v", err))
 	} else {
 		preview := value
 		if len(preview) > 60 {
 			preview = preview[:60] + "..."
 		}
-		a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <copied: %s>[-]", preview))
+		a.AppendFlashSuccess(fmt.Sprintf("copied %s", preview))
 	}
 	a.UpdateShortcuts()
 }

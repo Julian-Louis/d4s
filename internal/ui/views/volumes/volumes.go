@@ -62,14 +62,14 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 
 func PruneAction(app common.AppController) {
 	dialogs.ShowConfirmation(app, "PRUNE", "Volumes", func(force bool) {
-		app.SetFlashText("[yellow]Pruning Volumes...")
+		app.SetFlashPending("pruning volumes...")
 		app.RunInBackground(func() {
 			err := Prune(app)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Prune Error: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText("[green]Pruned Volumes")
+					app.SetFlashSuccess("pruned volumes")
 					app.RefreshCurrentView()
 				}
 			})
@@ -92,7 +92,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
+		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})
 }
 
@@ -106,14 +106,14 @@ func Remove(id string, force bool, app common.AppController) error {
 
 func Create(app common.AppController) {
 	dialogs.ShowInput(app, "Create Volume", "Volume Name: ", "", func(text string) {
-		app.SetFlashText(fmt.Sprintf("[yellow]Creating volume %s...", text))
+		app.SetFlashPending(fmt.Sprintf("creating volume %s...", text))
 		app.RunInBackground(func() {
 			err := app.GetDocker().CreateVolume(text)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Error creating volume: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText(fmt.Sprintf("[green]Volume %s created", text))
+					app.SetFlashSuccess(fmt.Sprintf("volume %s created", text))
 					app.ScheduleViewHighlight(styles.TitleVolumes, func(res dao.Resource) bool {
 						vol, ok := res.(dao.Volume)
 						return ok && vol.Name == text
@@ -135,18 +135,18 @@ func OpenAction(app common.AppController, v *view.ResourceView) {
 func Open(app common.AppController, res dao.Resource) {
 	vol, ok := res.(dao.Volume)
 	if !ok {
-		app.SetFlashText("[red]Not a volume")
+		app.SetFlashError("not a volume")
 		return
 	}
 
 	path := vol.Mount
 	if path == "" {
-		app.SetFlashText("[yellow]No mountpoint found")
+		app.SetFlashError("no mountpoint found")
 		return
 	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		app.SetFlashText(fmt.Sprintf("[red]Path not found on Host: %s (Is it inside Docker VM?)", path))
+		app.SetFlashError(fmt.Sprintf("path not found on host: %s", path))
 		return
 	}
 
@@ -160,15 +160,15 @@ func Open(app common.AppController, res dao.Resource) {
 		cmd = exec.Command("xdg-open", path)
 	}
 
-	app.SetFlashText(fmt.Sprintf("[yellow]Opening %s...", path))
+	app.SetFlashPending(fmt.Sprintf("opening %s...", path))
 
 	app.RunInBackground(func() {
 		err := cmd.Run()
 		app.GetTviewApp().QueueUpdateDraw(func() {
 			if err != nil {
-				app.SetFlashText(fmt.Sprintf("[red]Open error: %v (Path: %s)", err, path))
+				app.SetFlashError(fmt.Sprintf("%v (Path: %s)", err, path))
 			} else {
-				app.SetFlashText(fmt.Sprintf("[green]Opened %s", path))
+				app.SetFlashSuccess(fmt.Sprintf("opened %s", path))
 			}
 		})
 	})
@@ -177,7 +177,7 @@ func Open(app common.AppController, res dao.Resource) {
 func Inspect(app common.AppController, id string) {
 	content, err := app.GetDocker().Inspect("volume", id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 

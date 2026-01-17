@@ -45,14 +45,14 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 
 func PruneAction(app common.AppController) {
 	dialogs.ShowConfirmation(app, "PRUNE", "Images", func(force bool) {
-		app.SetFlashText("[yellow]Pruning Images...")
+		app.SetFlashPending("pruning images...")
 		app.RunInBackground(func() {
 			err := Prune(app)
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
-					app.SetFlashText(fmt.Sprintf("[red]Prune Error: %v", err))
+					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
-					app.SetFlashText("[green]Pruned Images")
+					app.SetFlashSuccess("pruned images")
 					app.RefreshCurrentView()
 				}
 			})
@@ -63,7 +63,7 @@ func PruneAction(app common.AppController) {
 func Inspect(app common.AppController, id string) {
 	content, err := app.GetDocker().Inspect("image", id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -108,6 +108,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 			if item.GetID() == ids[0] {
 				cells := item.GetCells()
 				if len(cells) > 1 {
+					// Inside Confirmation Modal
 					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
 				}
 			}
@@ -120,7 +121,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		simpleAction := func(id string) error {
 			return Remove(id, force, app)
 		}
-		app.PerformAction(simpleAction, "Deleting", styles.ColorStatusRed)
+		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})
 }
 

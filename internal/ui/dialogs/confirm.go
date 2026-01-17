@@ -21,7 +21,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 	text := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
-		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow]%s[white]\n\nType exactly: [red::b]Yes Please![white::-]", actionName, item))
+		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow] %s [white]\n\nType exactly: [red::b]Yes Please![white::-]", actionName, item))
 	text.SetBackgroundColor(styles.ColorBlack)
 
 	// Force Checkbox
@@ -180,7 +180,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 				closeModal()
 				onConfirm(force)
 			} else {
-				app.SetFlashText("[red]Confirmation mismatch. Action cancelled.")
+				app.SetFlashError("confirmation mismatch")
 				closeModal()
 			}
 		} else if key == tcell.KeyEsc {

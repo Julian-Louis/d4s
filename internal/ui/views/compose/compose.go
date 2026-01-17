@@ -25,7 +25,7 @@ func Fetch(app common.AppController) ([]dao.Resource, error) {
 func Inspect(app common.AppController, id string) {
 	content, err := app.GetDocker().GetComposeConfig(id)
 	if err != nil {
-		app.SetFlashText(fmt.Sprintf("[red]Inspect error: %v", err))
+		app.SetFlashError(fmt.Sprintf("%v", err))
 		return
 	}
 
@@ -113,13 +113,13 @@ func NavigateToContainers(app common.AppController, v *view.ResourceView) {
 func RestartAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().RestartComposeProject(id)
-	}, "Restarting Project", styles.ColorStatusOrange)
+	}, "restarting", styles.ColorStatusOrange)
 }
 
 func StopAction(app common.AppController, v *view.ResourceView) {
 	app.PerformAction(func(id string) error {
 		return app.GetDocker().StopComposeProject(id)
-	}, "Stopping Project", styles.ColorStatusRed)
+	}, "stopping", styles.ColorStatusRed)
 }
 
 func EditAction(app common.AppController, v *view.ResourceView) {
@@ -128,14 +128,14 @@ func EditAction(app common.AppController, v *view.ResourceView) {
 		res := v.Data[row-1]
 		if cp, ok := res.(daoCompose.ComposeProject); ok {
 			if len(cp.ConfigPaths) == 0 {
-				app.SetFlashText("[red]No config file found for this project")
+				app.SetFlashError("no config file for this project")
 				return
 			}
 
 			// Use the first config file found
 			fileToEdit := strings.TrimSpace(cp.ConfigPaths[0])
 			if fileToEdit == "" {
-				app.SetFlashText("[red]Empty config file path")
+				app.SetFlashError("empty config file path")
 				return
 			}
 

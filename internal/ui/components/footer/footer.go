@@ -1,14 +1,14 @@
 package footer
 
 import (
-	"strings"
-
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
 
 type FlashComponent struct {
-	View *tview.TextView
+	View         *tview.TextView
+	mainText     string
+	appendedText string
 }
 
 func NewFlashComponent() *FlashComponent {
@@ -18,27 +18,28 @@ func NewFlashComponent() *FlashComponent {
 }
 
 func (f *FlashComponent) SetText(text string) {
-	f.View.SetText(text)
+	f.mainText = text
+	f.render()
 }
 
-// Appends text to existing content temporarily, replacing any existing "copied" message
+// Appends text to existing content temporarily.
+// It uses a dedicated slot, so multiple appends overwrite each other (last one wins),
+// but it stays separate from the main text (breadcrumb/status).
 func (f *FlashComponent) Append(text string) {
-	current := f.View.GetText(false)
-	
-	// Remove existing copy notifications to prevent stacking
-	// Looking for patterns like " <copied: ...> "
-	// A simple but effective way is to split by " <copied:" and take the first part
-	// Or use a more robust regex if needed, but string manipulation is faster here
-	// Assuming the tag starts with " [black:#50fa7b:b] <copied:" and ends with "[-] "
-	
-	// Strategy: Split by the start of our known copy tag style
-	// Tag format from app_actions: [black:#50fa7b] <copied:
-	
-	const tagStart = " [black:#50fa7b] <copied:"
-	
-	if idx := strings.Index(current, tagStart); idx != -1 {
-		current = current[:idx]
+	f.appendedText = text
+	f.render()
+}
+
+func (f *FlashComponent) ClearAppend() {
+	f.appendedText = ""
+	f.render()
+}
+
+func (f *FlashComponent) render() {
+	full := f.mainText
+	if f.appendedText != "" {
+		// Ensure separation
+		full += " " + f.appendedText
 	}
-	
-	f.View.SetText(current + " " + text)
+	f.View.SetText(full)
 }

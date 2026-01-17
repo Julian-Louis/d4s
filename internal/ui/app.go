@@ -57,6 +57,9 @@ type App struct {
 	
 	flashMx    sync.Mutex
 	flashExpiry time.Time
+	
+	appendTimer *time.Timer
+	appendMx    sync.Mutex
 }
 
 // Ensure App implements AppController interface
@@ -425,17 +428,6 @@ func (a *App) SetFilter(filter string) {
 	a.ActiveFilter = filter
 }
 
-func (a *App) SetFlashText(text string) {
-	a.Flash.SetText(text)
-}
-
-func (a *App) AppendFlash(text string) {
-	a.Flash.Append(text)
-	
-	// Optional: Auto-clear the appended part after delay? 
-	// For now let's keep it simple, it will be cleared on next full refresh
-}
-
 func (a *App) RestoreFocus() {
 	page, _ := a.Pages.GetFrontPage()
 	if view, ok := a.Views[page]; ok {
@@ -548,12 +540,64 @@ func (a *App) IsPaused() bool {
 	return a.paused
 }
 
+
+func (a *App) SetFlashText(text string) {
+	a.flashMx.Lock()
+	a.flashExpiry = time.Now().Add(100 * time.Millisecond) // Short lock to prevent immediate overwrite
+	a.flashMx.Unlock()
+	a.Flash.SetText(text)
+}
+
+func (a *App) AppendFlash(text string) {
+	// No need to lock main flash, as we use a separate slot in FlashComponent.
+	a.appendMx.Lock()
+	defer a.appendMx.Unlock()
+
+	if a.appendTimer != nil {
+		a.appendTimer.Stop()
+	}
+
+	a.Flash.Append(text)
+
+	a.appendTimer = time.AfterFunc(2*time.Second, func() {
+		a.appendMx.Lock()
+		defer a.appendMx.Unlock()
+		a.Flash.ClearAppend()
+		// SafeQueueUpdateDraw handles thread safety for the draw
+		a.SafeQueueUpdateDraw(func() {})
+	})
+}
+
+func  (a *App) AppendFlashError(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:red] <error: %s> [-:-]", text))
+}
+
+func (a *App) AppendFlashPending(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:%s] <pending: %s> [-:-]", styles.ColorIdle, text))
+}
+
+func (a *App) AppendFlashSuccess(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <success: %s> [-:-]", text))
+}
+
 func (a *App) SetFlashMessage(text string, duration time.Duration) {
 	a.flashMx.Lock()
 	a.flashExpiry = time.Now().Add(duration)
 	a.flashMx.Unlock()
 	
 	a.Flash.SetText(text)
+}
+
+func (a *App) SetFlashError(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:red] <error: %s> [-:-]", text))
+}
+
+func (a *App) SetFlashPending(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:%s] <pending: %s> [-:-]", styles.ColorIdle, text))
+}
+
+func (a *App) SetFlashSuccess(text string) {
+	a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <success: %s> [-:-]", text))
 }
 
 func (a *App) IsFlashLocked() bool {

@@ -361,12 +361,34 @@ func (v *ResourceView) Refilter() {
 		// User Filter
 		if v.Filter != "" {
 			userMatch := false
-			for _, cell := range cells {
-				if strings.Contains(strings.ToLower(cell), strings.ToLower(v.Filter)) {
-					userMatch = true
-					break
+			filterTerm := v.Filter
+			negate := false
+
+			if strings.HasPrefix(filterTerm, "^") {
+				negate = true
+				filterTerm = strings.TrimPrefix(filterTerm, "^")
+			}
+
+			// If input is just "^", show everything (user is typing)
+			if negate && filterTerm == "" {
+				userMatch = true
+			} else {
+				lowerFilter := strings.ToLower(filterTerm)
+				contains := false
+				for _, cell := range cells {
+					if strings.Contains(strings.ToLower(cell), lowerFilter) {
+						contains = true
+						break
+					}
+				}
+
+				if negate {
+					userMatch = !contains
+				} else {
+					userMatch = contains
 				}
 			}
+
 			if !userMatch {
 				match = false
 			}
@@ -629,7 +651,7 @@ func (v *ResourceView) updateRowStyle(rowIndex int, item dao.Resource) {
 		// Optional: Replace Status with Action Status
 		if headerName == "STATUS" {
 			if actionState, ok := v.ActionStates[id]; ok {
-				displayText = actionState.Label
+				displayText = strings.ToUpper(actionState.Label[:1]) + actionState.Label[1:] + "..."
 			}
 		}
 
