@@ -39,6 +39,7 @@ type HostStats struct {
 	User       string
 	Hostname   string
 	D4SVersion string
+	LatestVersion string
 }
 
 func GetHostStats(cli *client.Client, ctx context.Context) (HostStats, error) {

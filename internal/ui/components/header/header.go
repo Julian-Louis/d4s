@@ -88,11 +88,22 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 		memDisplay += " [dim](...)"
 	}
 
+	versionStr := fmt.Sprintf("[orange]D4s Rev: [white]v%s", stats.D4SVersion)
+	if stats.LatestVersion != "" {
+		currentV := stats.D4SVersion
+		if len(currentV) > 0 && currentV[0] != 'v' {
+			currentV = "v" + currentV
+		}
+		if stats.LatestVersion != currentV {
+			versionStr += fmt.Sprintf(" ⚡️[blue]%s[-]", stats.LatestVersion)
+		}
+	}
+
 	lines := []string{
 		fmt.Sprintf("[orange]Host:    [white]%s", stats.Hostname),
-		fmt.Sprintf("[orange]D4s Rev: [white]v%s", stats.D4SVersion),
 		fmt.Sprintf("[orange]User:    [white]%s", stats.User),
-		fmt.Sprintf("[orange]Engine:  [white]%s [dim](%s)", stats.Name, stats.Version),
+		versionStr,
+		fmt.Sprintf("[orange]Context: [white]%s [dim](%s)", stats.Name, stats.Version),
 		fmt.Sprintf("[orange]CPU:     [white]%s", cpuDisplay),
 		fmt.Sprintf("[orange]Mem:     [white]%s", memDisplay),
 	}

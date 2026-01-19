@@ -43,6 +43,7 @@ func (a *App) updateHeader() {
 		
 		a.TviewApp.QueueUpdateDraw(func() {
 			shortcuts := a.getCurrentShortcuts()
+			stats.LatestVersion = a.LatestVersion
 			a.Header.Update(stats, shortcuts)
 		})
 		
@@ -50,6 +51,7 @@ func (a *App) updateHeader() {
 		if err == nil {
 			a.TviewApp.QueueUpdateDraw(func() {
 				shortcuts := a.getCurrentShortcuts()
+				statsWithUsage.LatestVersion = a.LatestVersion
 				a.Header.Update(statsWithUsage, shortcuts)
 			})
 		}

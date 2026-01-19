@@ -24,6 +24,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/views/nodes"
 	"github.com/jr-k/d4s/internal/ui/views/services"
 	"github.com/jr-k/d4s/internal/ui/views/volumes"
+	"github.com/jr-k/d4s/internal/updater"
 	"github.com/rivo/tview"
 )
 
@@ -49,6 +50,7 @@ type App struct {
 	ActiveInspector common.Inspector
 	PreviousView    string
 	CurrentView     string // Track current view name before inspector
+	LatestVersion   string 
 
 	// Concurrency
 	pauseMx    sync.RWMutex
@@ -124,8 +126,18 @@ func (a *App) Run() error {
 
 	// Start auto-refresh
 	a.StartAutoRefresh()
+	
+	// Check for updates
+	go a.checkLatestVersion()
 
 	return a.TviewApp.SetRoot(a.Layout, true).Run()
+}
+
+func (a *App) checkLatestVersion() {
+	latest, err := updater.CheckLatestVersion()
+	if err == nil {
+		a.LatestVersion = latest
+	}
 }
 
 func (a *App) StartAutoRefresh() {

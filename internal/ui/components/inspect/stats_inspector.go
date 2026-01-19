@@ -158,7 +158,7 @@ func (i *StatsInspector) OnMount(app common.AppController) {
 
 	i.updateLayout()
 	// Initial draw to ensure no empty boxes
-	i.drawDashboard(0, 0, 0, 0, 0, 0, 0)
+	i.drawDashboard(0, 0, 0, 0, 0, 0, 0, nil, nil, nil, nil, nil, nil)
 	i.startRefresher()
 }
 
@@ -166,6 +166,7 @@ func createGraphView(title string) *tview.TextView {
 	tv := tview.NewTextView().
 		SetDynamicColors(true).
 		SetScrollable(false).
+		SetWrap(false).
 		SetTextAlign(tview.AlignLeft)
 
 	tv.SetBorder(true).
@@ -249,26 +250,36 @@ func (i *StatsInspector) tick() {
 	json.Unmarshal([]byte(statsJSON), &v)
 	cpu, mem, limit, netRx, netTx, diskRead, diskWrite := daoCommon.CalculateStatsFromMap(v)
 
-	// Calculate Rates (Pre-Store)
-	rxRate := netRx - i.prevNetRx
-	txRate := netTx - i.prevNetTx
-	readRate := diskRead - i.prevDiskRead
-	writeRate := diskWrite - i.prevDiskWrite
-
-	if rxRate < 0 {
-		rxRate = 0
-	}
-	if txRate < 0 {
-		txRate = 0
-	}
-	if readRate < 0 {
-		readRate = 0
-	}
-	if writeRate < 0 {
-		writeRate = 0
-	}
-
 	i.mu.Lock()
+	var rxRate, txRate, readRate, writeRate float64
+
+	if i.firstSample {
+		i.firstSample = false
+	} else {
+		rxRate = netRx - i.prevNetRx
+		txRate = netTx - i.prevNetTx
+		readRate = diskRead - i.prevDiskRead
+		writeRate = diskWrite - i.prevDiskWrite
+
+		if rxRate < 0 {
+			rxRate = 0
+		}
+		if txRate < 0 {
+			txRate = 0
+		}
+		if readRate < 0 {
+			readRate = 0
+		}
+		if writeRate < 0 {
+			writeRate = 0
+		}
+	}
+
+	i.prevNetRx = netRx
+	i.prevNetTx = netTx
+	i.prevDiskRead = diskRead
+	i.prevDiskWrite = diskWrite
+
 	i.lastStats = v
 
 	// Store calculated values
@@ -279,19 +290,6 @@ func (i *StatsInspector) tick() {
 	i.curTx = txRate
 	i.curRead = readRate
 	i.curWrite = writeRate
-
-	if i.firstSample {
-		i.prevNetRx = netRx
-		i.prevNetTx = netTx
-		i.prevDiskRead = diskRead
-		i.prevDiskWrite = diskWrite
-		i.firstSample = false
-	}
-
-	i.prevNetRx = netRx
-	i.prevNetTx = netTx
-	i.prevDiskRead = diskRead
-	i.prevDiskWrite = diskWrite
 
 	// Update History
 	i.cpuHistory = pushHistory(i.cpuHistory, cpu, i.maxPoints)
@@ -325,6 +323,25 @@ func (i *StatsInspector) draw() {
 	tx := i.curTx
 	dread := i.curRead
 	dwrite := i.curWrite
+
+	// Copy histories under lock to prevent race conditions with the tick loop
+	cpuHist := make([]float64, len(i.cpuHistory))
+	copy(cpuHist, i.cpuHistory)
+
+	memHist := make([]float64, len(i.memHistory))
+	copy(memHist, i.memHistory)
+
+	rxHist := make([]float64, len(i.netRxHistory))
+	copy(rxHist, i.netRxHistory)
+
+	txHist := make([]float64, len(i.netTxHistory))
+	copy(txHist, i.netTxHistory)
+
+	readHist := make([]float64, len(i.diskReadHistory))
+	copy(readHist, i.diskReadHistory)
+
+	writeHist := make([]float64, len(i.diskWriteHistory))
+	copy(writeHist, i.diskWriteHistory)
 	i.mu.RUnlock()
 
 	if mode == "text" {
@@ -342,7 +359,7 @@ func (i *StatsInspector) draw() {
 			if i.Mode != "graph" {
 				return
 			}
-			i.drawDashboard(cpu, mem, limit, rx, tx, dread, dwrite)
+			i.drawDashboard(cpu, mem, limit, rx, tx, dread, dwrite, cpuHist, memHist, rxHist, txHist, readHist, writeHist)
 		})
 	}
 }
@@ -355,11 +372,11 @@ func pushHistory(hist []float64, val float64, max int) []float64 {
 	return hist
 }
 
-func (i *StatsInspector) drawDashboard(cpu float64, mem uint64, limit uint64, rx, tx, dread, dwrite float64) {
+func (i *StatsInspector) drawDashboard(cpu float64, mem uint64, limit uint64, rx, tx, dread, dwrite float64, cpuHist, memHist, rxHist, txHist, readHist, writeHist []float64) {
 	// 1. CPU
 	{
 		label := fmt.Sprintf("Current: %.2f%%", cpu)
-		i.renderGraph(i.GraphCPU, i.cpuHistory, label, asciigraph.Green)
+		i.renderGraph(i.GraphCPU, cpuHist, label, asciigraph.Green)
 	}
 
 	// 2. Memory
@@ -370,19 +387,19 @@ func (i *StatsInspector) drawDashboard(cpu float64, mem uint64, limit uint64, rx
 		}
 		label := fmt.Sprintf("Current: %.2f%% (%s / %s)",
 			memPct, daoCommon.FormatBytes(int64(mem)), daoCommon.FormatBytes(int64(limit)))
-		i.renderGraph(i.GraphMem, i.memHistory, label, asciigraph.Green)
+		i.renderGraph(i.GraphMem, memHist, label, asciigraph.Green)
 	}
 
 	// 3. Network
 	{
-		label := fmt.Sprintf("[green]●[-] Rx: %s/s  [blue]●[-] Tx: %s/s", daoCommon.FormatBytes(int64(rx)), daoCommon.FormatBytes(int64(tx)))
-		i.renderGraphMany(i.GraphNet, [][]float64{i.netRxHistory, i.netTxHistory}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Blue})
+		label := fmt.Sprintf("[green]●[-] Rx: %s/s  [#00ffff]●[-] Tx: %s/s", daoCommon.FormatBytes(int64(rx)), daoCommon.FormatBytes(int64(tx)))
+		i.renderGraphMany(i.GraphNet, [][]float64{rxHist, txHist}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Cyan}, true)
 	}
 
 	// 4. Disk
 	{
 		label := fmt.Sprintf("[green]●[-] Read: %s/s  [red]●[-] Write: %s/s", daoCommon.FormatBytes(int64(dread)), daoCommon.FormatBytes(int64(dwrite)))
-		i.renderGraphMany(i.GraphDisk, [][]float64{i.diskReadHistory, i.diskWriteHistory}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Red})
+		i.renderGraphMany(i.GraphDisk, [][]float64{readHist, writeHist}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Red}, true)
 	}
 }
 
@@ -420,8 +437,35 @@ func (i *StatsInspector) renderGraph(tv *tview.TextView, data []float64, label s
 	tv.SetText(tview.TranslateANSI(plot))
 }
 
-func (i *StatsInspector) renderGraphMany(tv *tview.TextView, data [][]float64, label string, colors []asciigraph.AnsiColor) {
+func (i *StatsInspector) renderGraphMany(tv *tview.TextView, data [][]float64, label string, colors []asciigraph.AnsiColor, isBytes bool) {
 	_, _, w, h := tv.GetInnerRect()
+
+	maxVal := 0.0
+	for _, series := range data {
+		for _, v := range series {
+			if v > maxVal {
+				maxVal = v
+			}
+		}
+	}
+
+	scale := 1.0
+	unit := ""
+	if isBytes {
+		scale, unit = determineGraphUnit(maxVal)
+	}
+
+	plotData := data
+	if scale != 1.0 {
+		plotData = make([][]float64, len(data))
+		for idx, series := range data {
+			scaled := make([]float64, len(series))
+			for j, val := range series {
+				scaled[j] = val / scale
+			}
+			plotData[idx] = scaled
+		}
+	}
 
 	// Asciigraph needs explicit resizing
 	// Height must be >= 1. Width must be positive.
@@ -432,17 +476,25 @@ func (i *StatsInspector) renderGraphMany(tv *tview.TextView, data [][]float64, l
 		graphHeight = 1
 	}
 
-	graphWidth := w - 8 // Reserve space for axis labels (approx)
+	// Reserve space for axis labels
+	// Max value 1023.99 + " MB" -> ~10 chars + axis ~2 chars = 12.
+	// We add some buffer to prevent wrapping issues.
+	axisReservation := 15
+	if isBytes {
+		axisReservation = 18 // More space for units
+	}
+
+	graphWidth := w - axisReservation
 	if graphWidth < 10 {
 		graphWidth = 10
 	}
 
-	if len(data) == 0 {
+	if len(plotData) == 0 {
 		return
 	}
 
 	hasData := false
-	for _, series := range data {
+	for _, series := range plotData {
 		if len(series) > 0 {
 			hasData = true
 			break
@@ -452,15 +504,77 @@ func (i *StatsInspector) renderGraphMany(tv *tview.TextView, data [][]float64, l
 		return
 	}
 
-	plot := asciigraph.PlotMany(data,
+	opts := []asciigraph.Option{
 		asciigraph.Height(graphHeight),
 		asciigraph.Width(graphWidth),
 		asciigraph.SeriesColors(colors...),
 		asciigraph.Caption(label),
-	)
+	}
+
+	if isBytes {
+		prec := uint(2)
+		if unit == "B" {
+			prec = 0
+		}
+		opts = append(opts, asciigraph.Precision(prec))
+	}
+
+	plot := asciigraph.PlotMany(plotData, opts...)
+
+	if isBytes && unit != "" {
+		plot = addUnitToAxis(plot, unit)
+	}
 
 	// Reset bg to opaque before drawing
 	tv.SetText("")
 	// TranslateANSI converts the color codes from asciigraph
 	tv.SetText(tview.TranslateANSI(plot))
 }
+
+func determineGraphUnit(maxVal float64) (float64, string) {
+	if maxVal >= 1024*1024*1024*1024 {
+		return 1024 * 1024 * 1024 * 1024, "TB"
+	}
+	if maxVal >= 1024*1024*1024 {
+		return 1024 * 1024 * 1024, "GB"
+	}
+	if maxVal >= 1024*1024 {
+		return 1024 * 1024, "MB"
+	}
+	if maxVal >= 1024 {
+		return 1024, "KB"
+	}
+	return 1, "B"
+}
+
+func addUnitToAxis(plotString, unit string) string {
+	lines := strings.Split(plotString, "\n")
+	unitLen := len(unit) + 1 // +1 for space
+	for i, line := range lines {
+		// Find axis separator
+		idx := strings.Index(line, "┤")
+		if idx == -1 {
+			idx = strings.Index(line, "┼")
+		}
+
+		if idx != -1 {
+			prefix := line[:idx]
+			suffix := line[idx:]
+
+			// Check if prefix has numbers (is a label) or just spaces
+			// Asciigraph aligns numbers right, so left padding is spaces.
+			if strings.TrimSpace(prefix) != "" {
+				// It's a label, append unit
+				// We need to be careful not to make the line too long, hindering the graph?
+				// Actually, we reserved space via axisReservation.
+				lines[i] = prefix + " " + unit + suffix
+			} else {
+				// It's whitespace padding
+				// We need to replicate the padding length added by " unit"
+				lines[i] = prefix + strings.Repeat(" ", unitLen) + suffix
+			}
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+

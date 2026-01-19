@@ -18,6 +18,7 @@ var (
 	// Header
 	ColorTitle       = tcell.NewRGBColor(189, 147, 249) // Purple
 	ColorIdle	 	 = tcell.NewRGBColor(137, 206, 250) // Blue
+	ColorTeal 		 = tcell.NewRGBColor(94, 175, 175)  // Teal/Cyan
 	
 	// Footer
 	ColorFooterBg    = tcell.NewRGBColor(68, 71, 90)    // Selection Gray
