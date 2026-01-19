@@ -52,7 +52,7 @@ func (a Alias) GetDefaultSortColumn() string {
 func Fetch(app common.AppController) ([]dao.Resource, error) {
 	// Static list of aliases
 	aliases := []Alias{
-		{Title: styles.TitleContainers, Resource: "aliases", Group: "internal"},
+		{Title: styles.TitleAliases, Resource: "aliases", Group: "internal"},
 		{Title: styles.TitleContainers, Resource: "containers", Group: "docker"},
 		{Title: styles.TitleImages, Resource: "images", Group: "docker"},
 		{Title: styles.TitleVolumes, Resource: "volumes", Group: "docker"},
@@ -74,5 +74,13 @@ func GetShortcuts() []string {
 }
 
 func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
+	switch event.Key() {
+	case tcell.KeyEnter:
+		id, err := v.GetSelectedID()
+		if err == nil {
+			v.App.SwitchTo(id)
+			return nil
+		}
+	}
 	return event
 }
