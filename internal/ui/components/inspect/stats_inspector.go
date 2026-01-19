@@ -375,14 +375,14 @@ func (i *StatsInspector) drawDashboard(cpu float64, mem uint64, limit uint64, rx
 
 	// 3. Network
 	{
-		label := fmt.Sprintf("Rx: %s/s  Tx: %s/s", daoCommon.FormatBytes(int64(rx)), daoCommon.FormatBytes(int64(tx)))
-		i.renderGraph(i.GraphNet, i.netRxHistory, label, asciigraph.Blue)
+		label := fmt.Sprintf("[green]●[-] Rx: %s/s  [blue]●[-] Tx: %s/s", daoCommon.FormatBytes(int64(rx)), daoCommon.FormatBytes(int64(tx)))
+		i.renderGraphMany(i.GraphNet, [][]float64{i.netRxHistory, i.netTxHistory}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Blue})
 	}
 
 	// 4. Disk
 	{
-		label := fmt.Sprintf("Read: %s/s  Write: %s/s", daoCommon.FormatBytes(int64(dread)), daoCommon.FormatBytes(int64(dwrite)))
-		i.renderGraph(i.GraphDisk, i.diskWriteHistory, label, asciigraph.Red)
+		label := fmt.Sprintf("[green]●[-] Read: %s/s  [red]●[-] Write: %s/s", daoCommon.FormatBytes(int64(dread)), daoCommon.FormatBytes(int64(dwrite)))
+		i.renderGraphMany(i.GraphDisk, [][]float64{i.diskReadHistory, i.diskWriteHistory}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Red})
 	}
 }
 
@@ -411,6 +411,51 @@ func (i *StatsInspector) renderGraph(tv *tview.TextView, data []float64, label s
 		asciigraph.Height(graphHeight),
 		asciigraph.Width(graphWidth),
 		asciigraph.SeriesColors(color),
+		asciigraph.Caption(label),
+	)
+
+	// Reset bg to opaque before drawing
+	tv.SetText("")
+	// TranslateANSI converts the color codes from asciigraph
+	tv.SetText(tview.TranslateANSI(plot))
+}
+
+func (i *StatsInspector) renderGraphMany(tv *tview.TextView, data [][]float64, label string, colors []asciigraph.AnsiColor) {
+	_, _, w, h := tv.GetInnerRect()
+
+	// Asciigraph needs explicit resizing
+	// Height must be >= 1. Width must be positive.
+
+	// Accounting for label text lines
+	graphHeight := h - 2
+	if graphHeight < 1 {
+		graphHeight = 1
+	}
+
+	graphWidth := w - 8 // Reserve space for axis labels (approx)
+	if graphWidth < 10 {
+		graphWidth = 10
+	}
+
+	if len(data) == 0 {
+		return
+	}
+
+	hasData := false
+	for _, series := range data {
+		if len(series) > 0 {
+			hasData = true
+			break
+		}
+	}
+	if !hasData {
+		return
+	}
+
+	plot := asciigraph.PlotMany(data,
+		asciigraph.Height(graphHeight),
+		asciigraph.Width(graphWidth),
+		asciigraph.SeriesColors(colors...),
 		asciigraph.Caption(label),
 	)
 
