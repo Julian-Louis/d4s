@@ -67,7 +67,7 @@ type App struct {
 // Ensure App implements AppController interface
 var _ common.AppController = (*App)(nil)
 
-func NewApp() *App {
+func NewApp(contextName string) (*App, error) {
 	// Configure global tview borders (Normal)
 	tview.Borders.TopLeft = '┌'
 	tview.Borders.TopRight = '┐'
@@ -89,14 +89,14 @@ func NewApp() *App {
 	tview.Borders.HorizontalFocus = '─'
 	tview.Borders.VerticalFocus = '│'
 
-	docker, err := dao.NewDockerClient()
+	docker, err := dao.NewDockerClient(contextName)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to init docker client: %w", err)
 	}
 
 	screen, err := tcell.NewScreen()
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create screen: %w", err)
 	}
 	// We don't Init() here, tview does it on Run() if we set it?
 	// Actually tview.Application.Run() calls screen.Init() if not initialized.
@@ -113,7 +113,7 @@ func NewApp() *App {
 	}
 
 	app.initUI()
-	return app
+	return app, nil
 }
 
 func (a *App) Run() error {

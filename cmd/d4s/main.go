@@ -39,6 +39,11 @@ func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.BoolVar(showVersion, "v", false, "Print version and exit (shorthand)")
 
+	// Context flag
+	var contextName string
+	flag.StringVar(&contextName, "context", "", "Docker context to use")
+	flag.StringVar(&contextName, "c", "", "Docker context to use (shorthand)")
+
 	flag.Parse()
 
 	// Accept also: d4s version (as positional arg)
@@ -75,7 +80,11 @@ func main() {
 		return
 	}
 
-	app := ui.NewApp()
+	app, err := ui.NewApp(contextName)
+	if err != nil {
+		fmt.Printf("Startup Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Handle signals for clean shutdown (SIGINT, SIGTERM)
 	c := make(chan os.Signal, 1)

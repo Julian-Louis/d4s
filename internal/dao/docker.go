@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/docker/cli/cli/config"
+	clicontext "github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/store"
 	"github.com/docker/docker/api/types/swarm"
@@ -50,100 +51,13 @@ type DockerClient struct {
 	Compose   *compose.Manager
 }
 
-func NewDockerClient() (*DockerClient, error) {
-	// Setup debug logging
-	f, err := os.OpenFile("/tmp/d4s_debug_dao.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	var logger *log.Logger
-	if err == nil {
-		// Note: defer f.Close() here is slightly risky if function returns early and we want to keep writing?
-		// Actually typical logger usage keeps file open. But NewDockerClient returns quickly.
-		// So defer is fine.
-		defer f.Close()
-		logger = log.New(f, "d4s-dao: ", log.LstdFlags)
-	} else {
-		logger = log.New(io.Discard, "", 0)
-	}
+func NewDockerClient(contextName string) (*DockerClient, error) {
+	logger, cleanup := initLogger()
+	defer cleanup()
 
-	opts := []client.Opt{
-		client.WithAPIVersionNegotiation(),
-	}
-
-	// 1. DOCKER_HOST takes precedence (standard Docker behavior)
-	if h := os.Getenv("DOCKER_HOST"); h != "" {
-		logger.Printf("DOCKER_HOST set to %s, using FromEnv", h)
-		opts = append(opts, client.FromEnv)
-	} else {
-		// 2. Identify Target Context
-		targetCtx := "default"
-		if envCtx := os.Getenv("DOCKER_CONTEXT"); envCtx != "" {
-			targetCtx = envCtx
-			logger.Printf("DOCKER_CONTEXT set to %s", targetCtx)
-		} else {
-			// Load config
-			if cfg, err := config.Load(config.Dir()); err == nil {
-				if cfg.CurrentContext != "" {
-					targetCtx = cfg.CurrentContext
-					logger.Printf("Loaded CurrentContext from config: %s", targetCtx)
-				}
-			} else {
-				logger.Printf("Failed to load config: %v", err)
-			}
-		}
-
-		if targetCtx == "default" {
-			logger.Println("Context is default, using FromEnv")
-			opts = append(opts, client.FromEnv)
-		} else {
-			// 3. Load Specific Context STRICTLY
-			// We do NOT fallback to FromEnv if loading fails.
-			logger.Printf("Loading context: %s", targetCtx)
-			s := store.New(config.ContextStoreDir(), store.NewConfig(
-				func() interface{} {
-					return &map[string]interface{}{}
-				},
-				store.EndpointTypeGetter(docker.DockerEndpoint, func() interface{} { return &docker.EndpointMeta{} }),
-			))
-			meta, err := s.GetMetadata(targetCtx)
-			if err != nil {
-				logger.Printf("Error getting metadata for %s: %v", targetCtx, err)
-				return nil, fmt.Errorf("failed to load docker context '%s': %v", targetCtx, err)
-			}
-
-			if epMeta, err := docker.EndpointFromContext(meta); err == nil {
-				ep, err := docker.WithTLSData(s, targetCtx, epMeta)
-				if err != nil {
-					// Fallback to meta only if TLS loading fails
-					logger.Printf("TLS data loading failed (non-critical): %v", err)
-					ep = docker.Endpoint{EndpointMeta: epMeta}
-				}
-
-				logger.Printf("Using Host: %s", ep.Host)
-				opts = append(opts, client.WithHost(ep.Host))
-				if ep.TLSData != nil {
-					tlsConfig := &tls.Config{
-						InsecureSkipVerify: ep.SkipTLSVerify,
-					}
-					if ep.TLSData.CA != nil {
-						certPool := x509.NewCertPool()
-						certPool.AppendCertsFromPEM(ep.TLSData.CA)
-						tlsConfig.RootCAs = certPool
-					}
-					if ep.TLSData.Cert != nil && ep.TLSData.Key != nil {
-						cert, err := tls.X509KeyPair(ep.TLSData.Cert, ep.TLSData.Key)
-						if err == nil {
-							tlsConfig.Certificates = []tls.Certificate{cert}
-						}
-					}
-					transport := &http.Transport{
-						TLSClientConfig: tlsConfig,
-					}
-					opts = append(opts, client.WithHTTPClient(&http.Client{Transport: transport}))
-				}
-			} else {
-				logger.Printf("EndpointFromContext failed for %s: %v", targetCtx, err)
-				return nil, fmt.Errorf("failed to parse endpoint for context '%s': %v", targetCtx, err)
-			}
-		}
+	opts, err := resolveClientOpts(contextName, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	cli, err := client.NewClientWithOpts(opts...)
@@ -163,6 +77,124 @@ func NewDockerClient() (*DockerClient, error) {
 		Node:      node.NewManager(cli, ctx),
 		Compose:   compose.NewManager(cli, ctx),
 	}, nil
+}
+
+func initLogger() (*log.Logger, func()) {
+	f, err := os.OpenFile("/tmp/d4s_debug_dao.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return log.New(io.Discard, "", 0), func() {}
+	}
+	return log.New(f, "d4s-dao: ", log.LstdFlags), func() { f.Close() }
+}
+
+func resolveClientOpts(flagContext string, logger *log.Logger) ([]client.Opt, error) {
+	opts := []client.Opt{
+		client.WithAPIVersionNegotiation(),
+	}
+
+	// 1. Flag takes precedence
+	if flagContext != "" {
+		logger.Printf("Explicit context requested via flag: %s", flagContext)
+		return loadSpecificContext(flagContext, logger, opts)
+	}
+
+	// 2. DOCKER_HOST takes precedence if no flag
+	if h := os.Getenv("DOCKER_HOST"); h != "" {
+		logger.Printf("DOCKER_HOST set to %s, using FromEnv", h)
+		opts = append(opts, client.FromEnv)
+		return opts, nil
+	}
+
+	// 3. Identify Target Context
+	targetCtx := "default"
+	if envCtx := os.Getenv("DOCKER_CONTEXT"); envCtx != "" {
+		targetCtx = envCtx
+		logger.Printf("DOCKER_CONTEXT set to %s", targetCtx)
+	} else {
+		if cfg, err := config.Load(config.Dir()); err == nil && cfg.CurrentContext != "" {
+			targetCtx = cfg.CurrentContext
+			logger.Printf("Loaded CurrentContext from config: %s", targetCtx)
+		} else if err != nil {
+			logger.Printf("Failed to load config: %v", err)
+		}
+	}
+
+	if targetCtx == "default" {
+		logger.Println("Context is default, using FromEnv")
+		opts = append(opts, client.FromEnv)
+		return opts, nil
+	}
+
+	// 4. Load Specific Context
+	return loadSpecificContext(targetCtx, logger, opts)
+}
+
+func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client.Opt) ([]client.Opt, error) {
+	logger.Printf("Loading context: %s", targetCtx)
+	
+	// Create store with docker endpoint registered
+	s := store.New(config.ContextStoreDir(), store.NewConfig(
+		func() interface{} {
+			return &map[string]interface{}{}
+		},
+		store.EndpointTypeGetter(docker.DockerEndpoint, func() interface{} { return &docker.EndpointMeta{} }),
+	))
+
+	meta, err := s.GetMetadata(targetCtx)
+	if err != nil {
+		logger.Printf("Error getting metadata for %s: %v", targetCtx, err)
+		return nil, fmt.Errorf("failed to load docker context '%s': %v", targetCtx, err)
+	}
+
+	epMeta, err := docker.EndpointFromContext(meta)
+	if err != nil {
+		logger.Printf("EndpointFromContext failed for %s: %v", targetCtx, err)
+		return nil, fmt.Errorf("failed to parse endpoint for context '%s': %v", targetCtx, err)
+	}
+
+	ep, err := docker.WithTLSData(s, targetCtx, epMeta)
+	if err != nil {
+		logger.Printf("TLS data loading failed (non-critical): %v", err)
+		ep = docker.Endpoint{EndpointMeta: epMeta}
+	}
+
+	logger.Printf("Using Host: %s", ep.Host)
+	opts := append(baseOpts, client.WithHost(ep.Host))
+
+	if ep.TLSData != nil {
+		httpClient, err := newTLSClient(ep.TLSData, ep.SkipTLSVerify)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, client.WithHTTPClient(httpClient))
+	}
+
+	return opts, nil
+}
+
+func newTLSClient(tlsData *clicontext.TLSData, skipVerify bool) (*http.Client, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: skipVerify,
+	}
+
+	if tlsData.CA != nil {
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(tlsData.CA)
+		tlsConfig.RootCAs = certPool
+	}
+
+	if tlsData.Cert != nil && tlsData.Key != nil {
+		cert, err := tls.X509KeyPair(tlsData.Cert, tlsData.Key)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+	return &http.Client{Transport: transport}, nil
 }
 
 func (d *DockerClient) ListContainers() ([]common.Resource, error) {
