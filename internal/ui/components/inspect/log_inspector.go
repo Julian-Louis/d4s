@@ -342,6 +342,27 @@ func (i *LogInspector) startStreaming() {
 		ticker := time.NewTicker(100 * time.Millisecond)
 		defer ticker.Stop()
 
+		// Color management for Compose
+		colorMap := make(map[string]string)
+		colorIdx := 0
+		nextColor := func() string {
+			palette := []string{
+				"#00ff00", // Bright Green
+				"#00d7ff", // Cyan
+				"#d700d7", // Purple-Magenta
+				"#ffff00", // Yellow
+				"#ff5f00", // Orange
+				"#ff005f", // Red/Pink
+				"#00ffaf", // Spring Green
+				"#d7ff00", // Chartreuse
+				"#af00ff", // Violet
+				"#00afff", // Blue
+			}
+			c := palette[colorIdx%len(palette)]
+			colorIdx++
+			return c
+		}
+
 		var buffer []string
 		firstWrite := true
 
@@ -416,19 +437,55 @@ func (i *LogInspector) startStreaming() {
 					}
 				}
 				
-				// Timestamp Coloring
-				// Assuming Docker log format: "2023-01-01T00:00:00.0000Z message"
-				// Or if demuxed, it's just raw bytes, but we requested Timestamps=true in API
-				if i.Timestamps {
-					parts := strings.SplitN(line, " ", 2)
+				if i.ResourceType == "compose" {
+					// Compose Logs: "ContainerPrefix | LogPayload"
+					parts := strings.SplitN(line, "|", 2)
 					if len(parts) == 2 {
-						// Check if first part looks like a timestamp? 
-						// Just blind replace for perf
-						line = fmt.Sprintf("[gray]%s[-] %s", parts[0], parts[1])
+						prefix := parts[0]
+						body := parts[1]
+						
+						// Determine unique color for this container prefix
+						key := strings.TrimSpace(prefix)
+						
+						col, exists := colorMap[key]
+						if !exists {
+							col = nextColor()
+							colorMap[key] = col
+						}
+						
+						// Handle timestamp which appears inside the body for compose logs
+						if i.Timestamps {
+							// Body usually starts with a space -> " 2023... msg"
+							trimmed := strings.TrimLeft(body, " ")
+							indent := body[:len(body)-len(trimmed)]
+							
+							tParts := strings.SplitN(trimmed, " ", 2)
+							if len(tParts) == 2 {
+								body = fmt.Sprintf("%s[gray]%s[-] %s", indent, tParts[0], tParts[1])
+							}
+						}
+						
+						// Color the prefix, reset, keep pipe, print body
+						line = fmt.Sprintf("[%s]%s[-]|%s", col, prefix, body)
+					} else {
+						// Fallback for lines without pipe (e.g. "Attaching to...")
+						line = " [#89cefa]" + line
 					}
-				}
+				} else {
+					// Standard Container/Service Logs
+					// Timestamp Coloring
+					// Assuming Docker log format: "2023-01-01T00:00:00.0000Z message"
+					if i.Timestamps {
+						parts := strings.SplitN(line, " ", 2)
+						if len(parts) == 2 {
+							// Check if first part looks like a timestamp? 
+							// Just blind replace for perf
+							line = fmt.Sprintf("[gray]%s[-] %s", parts[0], parts[1])
+						}
+					}
 
-				line = " [#89cefa]" + line + " "
+					line = " [#89cefa]" + line + " "
+				}
 				
 				buffer = append(buffer, line)
 				
