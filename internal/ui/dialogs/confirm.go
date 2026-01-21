@@ -2,6 +2,7 @@ package dialogs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/ui/common"
@@ -9,7 +10,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-// ShowConfirmation shows a modal asking to type "Yes Please!" and allows forcing
+// ShowConfirmation shows a modal asking to type "y" or "yes" and allows forcing
 func ShowConfirmation(app common.AppController, actionName, item string, onConfirm func(force bool)) {
 	// Center the dialog
 	dialogWidth := 60
@@ -21,7 +22,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 	text := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
-		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow] %s [white]\n\nType exactly: [red::b]Yes Please![white::-]", actionName, item))
+		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow] %s [white]\n\nType [red::b]y[white::-] or [red::b]yes[white::-] to confirm", actionName, item))
 	text.SetBackgroundColor(styles.ColorBlack)
 
 	// Force Checkbox
@@ -165,7 +166,8 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 			return nil
 		}
 		if event.Key() == tcell.KeyEnter {
-			if input.GetText() == "Yes Please!" {
+			val := strings.ToLower(strings.TrimSpace(input.GetText()))
+			if val == "y" || val == "yes" {
 				closeModal()
 				onConfirm(force)
 			}
@@ -176,7 +178,8 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 
 	input.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
-			if input.GetText() == "Yes Please!" {
+			val := strings.ToLower(strings.TrimSpace(input.GetText()))
+			if val == "y" || val == "yes" {
 				closeModal()
 				onConfirm(force)
 			} else {
