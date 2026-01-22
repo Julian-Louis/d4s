@@ -408,6 +408,8 @@ func (i *LogInspector) startStreaming() {
 					flush()
 					return
 				}
+
+				line = tview.TranslateANSI(line)
 				
 				// Filter logic (supports negation with ^)
 				if i.filter != "" {
