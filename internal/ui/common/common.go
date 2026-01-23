@@ -13,7 +13,8 @@ type Scope struct {
 	Type       string // e.g. "compose"
 	Value      string // e.g. "project-name"
 	Label      string // e.g. "~/docker-compose.yml"
-	OriginView string // View to return to on Esc
+	OriginView string // View which initiated this scope
+	Parent     *Scope // Previous scope in the stack
 }
 
 // AppController defines the methods that sub-components need from the main App

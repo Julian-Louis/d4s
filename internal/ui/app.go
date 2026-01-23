@@ -339,7 +339,13 @@ func (a *App) initUI() {
 			// Priority 2: Exit scope if active (return to origin view)
 			if a.ActiveScope != nil {
 				origin := a.ActiveScope.OriginView
-				a.ActiveScope = nil
+				parent := a.ActiveScope.Parent
+				
+				a.ActiveScope = parent // Pop breadcrumb
+				
+				// Navigate back: either to parent's active view (if we can infer it?)
+				// Or use OriginView. OriginView is the view we were in when we drilled down.
+				// This matches "Back" behavior perfectly.
 				a.SwitchToWithSelection(origin, false)
 				return nil
 			}
@@ -429,6 +435,15 @@ func (a *App) GetDocker() *dao.DockerClient {
 }
 
 func (a *App) SetActiveScope(scope *common.Scope) {
+	// If different from current, stack it
+	if a.ActiveScope != nil {
+		// Only stack if it's a new drill-down (different value or type)
+		// Prevent stacking identical scopes if called repeatedly? 
+		// Actually typical usage is creating a NEW struct instance, so we check content.
+		if a.ActiveScope.Value != scope.Value || a.ActiveScope.Type != scope.Type {
+			scope.Parent = a.ActiveScope
+		}
+	}
 	a.ActiveScope = scope
 }
 

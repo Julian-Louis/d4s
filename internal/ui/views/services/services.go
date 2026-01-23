@@ -103,11 +103,13 @@ func ViewAction(app common.AppController, v *view.ResourceView) {
 	if nameCell != nil {
 		name = nameCell.Text
 	}
+
+	trimSpaceLeftRightName := strings.TrimSpace(name)
 	
 	app.SetActiveScope(&common.Scope{
 		Type:       "service",
 		Value:      name,
-		Label:      fmt.Sprintf("Service: %s", name),
+		Label:      trimSpaceLeftRightName,
 		OriginView: styles.TitleServices,
 	})
 	

@@ -47,12 +47,21 @@ func (a *App) RefreshCurrentView() {
 			// If we have ActiveScope, it means we are in drilled down mode
 			if a.ActiveScope != nil {
 				// E.g. <compose> <containers> <logs>
-				scopes := []string{a.ActiveScope.OriginView, baseView, actionName}
+				var breadcrumbs []string
+				curr := a.ActiveScope
+				for curr != nil {
+					if curr.OriginView != "" {
+						breadcrumbs = append([]string{curr.OriginView}, breadcrumbs...)
+					}
+					curr = curr.Parent
+				}
+				breadcrumbs = append(breadcrumbs, baseView)
+				breadcrumbs = append(breadcrumbs, actionName)
 				
 				status += " "
-				for i, s := range scopes {
+				for i, s := range breadcrumbs {
 					color := "#00ffff" // cyan
-					if i == len(scopes)-1 {
+					if i == len(breadcrumbs)-1 {
 						color = "orange"
 					}
 					firstChar := ""
@@ -60,7 +69,7 @@ func (a *App) RefreshCurrentView() {
 						firstChar = " "
 					}
 					status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
-					if i < len(scopes)-1 {
+					if i < len(breadcrumbs)-1 {
 						status += "[black:black]"
 					}
 				}
@@ -155,11 +164,22 @@ func (a *App) RefreshCurrentView() {
 				status := ""
 				if a.ActiveScope != nil {
 					// Dynamic breadcrumb trail coloring: last is always orange, others cyan
-					scopes := []string{a.ActiveScope.OriginView, page}
+					// Traverse up to get full history
+					var breadcrumbs []string
+					curr := a.ActiveScope
+					for curr != nil {
+						if curr.OriginView != "" {
+							breadcrumbs = append([]string{curr.OriginView}, breadcrumbs...)
+						}
+						curr = curr.Parent
+					}
+					// Add current page
+					breadcrumbs = append(breadcrumbs, page)
+
 					status += " "
-					for i, s := range scopes {
+					for i, s := range breadcrumbs {
 						color := "#00ffff" // cyan
-						if i == len(scopes)-1 {
+						if i == len(breadcrumbs)-1 {
 							color = "orange"
 						}
 						firstChar := ""
@@ -168,7 +188,7 @@ func (a *App) RefreshCurrentView() {
 						}
 						// l'espace entre les éléments doit toujours être noir sur noir
 						status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
-						if i < len(scopes)-1 {
+						if i < len(breadcrumbs)-1 {
 							status += "[black:black]" // black fg, black bg for space
 						}
 					}
@@ -192,18 +212,32 @@ func (a *App) RefreshCurrentView() {
 
 func (a *App) formatViewTitle(viewName string, countStr string, filter string) string {
 	viewName = strings.ToLower(viewName)
-	// Show the view name and the number of items
+	
+	// Default simple title
 	title := fmt.Sprintf(" [#00ffff::b]%s[#00ffff][[white]%s[#00ffff]] ", viewName, countStr)
 	
-	// Show the parent view name and the active scope (subview) label
+	// Dynamic recursive breadcrumb
 	if a.ActiveScope != nil {
-		parentView := strings.ToLower(a.ActiveScope.OriginView)
-		cleanLabel := strings.ReplaceAll(a.ActiveScope.Label, "@", "[white] @ [#ff00ff]")
-		title = fmt.Sprintf(" [#00ffff::b]%s([-][#ff00ff]%s[#00ffff]) > [#00ffff]%s[#00ffff][[white]%s[#00ffff]] ", 
-			parentView, 
-			cleanLabel,
-			viewName,
-			countStr)
+		var parts []string
+		
+		// Walk up the stack
+		curr := a.ActiveScope
+		for curr != nil {
+			cleanLabel := strings.ReplaceAll(curr.Label, "@", "[white] @ [#ff00ff]")
+			origin := strings.ToLower(curr.OriginView)
+			
+			// Format: "origin(label)"
+			part := fmt.Sprintf("[#00ffff::b]%s([-][#ff00ff]%s[#00ffff])", origin, cleanLabel)
+			// Prepend to list (since we walk backwards)
+			parts = append([]string{part}, parts...)
+			
+			curr = curr.Parent
+		}
+		
+		// Append current view name
+		parts = append(parts, fmt.Sprintf("[#00ffff]%s[#00ffff][[white]%s[#00ffff]]", viewName, countStr))
+		
+		title = " " + strings.Join(parts, " > ") + " "
 	}
 	
 	if filter != "" {
