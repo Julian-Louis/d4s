@@ -118,6 +118,22 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 			return nil
 		}
 
+		// Prevent vertical navigation crashes on empty data
+		if len(v.Data) == 0 {
+			// Allow Shift+Arrows (Sort/ColMove) but block plain vertical
+			if event.Modifiers() == tcell.ModNone {
+				switch event.Key() {
+				case tcell.KeyUp, tcell.KeyDown, tcell.KeyPgUp, tcell.KeyPgDn, tcell.KeyHome, tcell.KeyEnd:
+					return nil
+				}
+				// Block vim keys and selection
+				switch event.Rune() {
+				case 'j', 'k', 'g', 'G', ' ':
+					return nil
+				}
+			}
+		}
+
 		// Sorting & Focus Shortcuts: SHIFT + ARROWS
 		if event.Modifiers()&tcell.ModShift != 0 {
 			switch event.Key() {
@@ -432,6 +448,9 @@ func (v *ResourceView) Refilter() {
 
 	// 2. Sort Data
 	sort.SliceStable(filtered, func(i, j int) bool {
+		if v.SortCol < 0 {
+			return i < j
+		}
 		rowI := filtered[i].GetCells()
 		rowJ := filtered[j].GetCells()
 

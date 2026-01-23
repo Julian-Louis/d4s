@@ -35,7 +35,11 @@ type Node struct {
 
 func (n Node) GetID() string { return n.ID }
 func (n Node) GetCells() []string {
-	return []string{n.ID[:12], n.Hostname, n.Status, n.Avail, n.Role, n.Version, n.Created}
+	id := n.ID
+	if len(id) > 12 {
+		id = id[:12]
+	}
+	return []string{id, n.Hostname, n.Status, n.Avail, n.Role, n.Version, n.Created}
 }
 
 func (n Node) GetStatusColor() (tcell.Color, tcell.Color) {

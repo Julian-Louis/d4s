@@ -38,7 +38,11 @@ type Service struct {
 
 func (s Service) GetID() string { return s.ID }
 func (s Service) GetCells() []string {
-	return []string{s.ID[:12], s.Name, s.Image, s.Mode, s.Replicas, s.Ports, s.Created, s.Updated}
+	id := s.ID
+	if len(id) > 12 {
+		id = id[:12]
+	}
+	return []string{id, s.Name, s.Image, s.Mode, s.Replicas, s.Ports, s.Created, s.Updated}
 }
 
 func (s Service) GetStatusColor() (tcell.Color, tcell.Color) {
