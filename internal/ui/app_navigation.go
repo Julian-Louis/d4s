@@ -71,6 +71,20 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 		// Update Command Line (Reset)
 		a.CmdLine.Reset()
 
+		// Show loading if the scope has changed (e.g. drilling down to container volumes)
+		shouldClear := false
+		if a.ActiveScope != nil {
+			if v.CurrentScope == nil || v.CurrentScope.Value != a.ActiveScope.Value || v.CurrentScope.Type != a.ActiveScope.Type {
+				shouldClear = true
+			}
+		} else if v.CurrentScope != nil {
+			shouldClear = true
+		}
+
+		if shouldClear || len(v.Data) == 0 {
+			v.SetLoading(true)
+		}
+
 		go a.RefreshCurrentView()
 		a.updateHeader()
 		a.TviewApp.SetFocus(a.Pages) // Usually focus page, but actually table

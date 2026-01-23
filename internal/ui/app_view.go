@@ -140,6 +140,7 @@ func (a *App) RefreshCurrentView() {
 			}
 			
 			v.SetFilter(filter)
+			v.CurrentScope = a.ActiveScope
 
 			if err != nil {
 				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))

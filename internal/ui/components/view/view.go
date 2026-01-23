@@ -30,6 +30,8 @@ type ResourceView struct {
 	ActionStates map[string]ActionState // ID -> Action State
 	Headers      []string               // Stored for rendering
 	ColumnWidths []int                  // Cache for column widths
+	CurrentScope *common.Scope          // Tracks which scope the current data belongs to
+	IsLoading    bool                   // Navigation lock
 
 	// Optional Overrides
 	InputHandler             func(event *tcell.EventKey) *tcell.EventKey
@@ -98,6 +100,7 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 		SelectedIDs:         make(map[string]bool),
 		ActionStates:        make(map[string]ActionState),
 		transientHighlights: make(map[string]highlightEntry),
+		IsLoading:           true,
 	}
 
 	// Handle Selection Change for custom highlighting (Optimized)
@@ -111,6 +114,10 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 
 	// Navigation shortcuts
 	tv.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if v.IsLoading {
+			return nil
+		}
+
 		// Sorting & Focus Shortcuts: SHIFT + ARROWS
 		if event.Modifiers()&tcell.ModShift != 0 {
 			switch event.Key() {
@@ -286,8 +293,32 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 	return v
 }
 
+// SetLoading shows/hides the loading state
+func (v *ResourceView) SetLoading(loading bool) {
+	v.IsLoading = loading
+	if loading {
+		v.Table.Clear()
+		v.Data = nil
+		v.ColCount = 0
+		v.RawData = nil
+		v.SelectedIDs = make(map[string]bool)
+		
+		v.Table.SetTitle(fmt.Sprintf(" [#00ffff::b]%s[-::-] ~ [white]loading...[-] ", strings.ToLower(v.Title)))
+		
+		loadingCell := tview.NewTableCell("Freshly squeezing data 🍊").
+			SetAlign(tview.AlignCenter).
+			SetTextColor(styles.ColorAccent).
+			SetExpansion(1).
+			SetSelectable(false)
+
+		v.Table.SetCell(2, 0, loadingCell)
+	}
+}
+
 // Update triggers a refresh with new data
 func (v *ResourceView) Update(headers []string, data []dao.Resource) {
+	v.IsLoading = false
+
 	// Preserve items in ActionState (e.g. Deleting) if they are missing from new data
 	// This ensures we see the red "deleting" state even if the backend removed it already
 	if len(v.ActionStates) > 0 {

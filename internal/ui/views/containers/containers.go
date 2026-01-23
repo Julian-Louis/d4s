@@ -24,16 +24,28 @@ func Fetch(app common.AppController) ([]dao.Resource, error) {
 	}
 
 	scope := app.GetActiveScope()
-	if scope != nil && scope.Type == "compose" {
-		var scopedData []dao.Resource
-		for _, res := range data {
-			if c, ok := res.(dao.Container); ok {
-				if c.ProjectName == scope.Value {
-					scopedData = append(scopedData, res)
+	if scope != nil {
+		if scope.Type == "compose" {
+			var scopedData []dao.Resource
+			for _, res := range data {
+				if c, ok := res.(dao.Container); ok {
+					if c.ProjectName == scope.Value {
+						scopedData = append(scopedData, res)
+					}
 				}
 			}
+			return scopedData, nil
+		} else if scope.Type == "service" {
+			var scopedData []dao.Resource
+			for _, res := range data {
+				if c, ok := res.(dao.Container); ok {
+					if c.ServiceName == scope.Value {
+						scopedData = append(scopedData, res)
+					}
+				}
+			}
+			return scopedData, nil
 		}
-		return scopedData, nil
 	}
 	
 	return data, nil

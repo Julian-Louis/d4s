@@ -67,6 +67,11 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 	
+	if event.Key() == tcell.KeyEnter {
+		ViewAction(app, v)
+		return nil
+	}
+	
 	switch event.Rune() {
 	case 's':
 		ScaleAction(app, v)
@@ -83,6 +88,30 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	}
 	
 	return event
+}
+
+func ViewAction(app common.AppController, v *view.ResourceView) {
+	// Filter containers by this service
+	id, err := v.GetSelectedID()
+	if err != nil { return }
+	
+	r, _ := v.Table.GetSelection()
+	// Headers: "ID", "NAME", ...
+	// Name is column 1
+	name := id // Fallback
+	nameCell := v.Table.GetCell(r, 1)
+	if nameCell != nil {
+		name = nameCell.Text
+	}
+	
+	app.SetActiveScope(&common.Scope{
+		Type:       "service",
+		Value:      name,
+		Label:      fmt.Sprintf("Service: %s", name),
+		OriginView: styles.TitleServices,
+	})
+	
+	app.SwitchTo(styles.TitleContainers)
 }
 
 func Logs(app common.AppController, v *view.ResourceView) {

@@ -53,6 +53,7 @@ type Container struct {
 	Created     string
 	Compose     string
 	ProjectName string
+	ServiceName string
 	CPU         string
 	Mem         string
 	IP          string
@@ -214,6 +215,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 		}
 		
 		projectName := c.Labels["com.docker.compose.project"]
+		serviceName := c.Labels["com.docker.swarm.service.name"]
 
 		status, age := common.ParseStatus(c.Status)
 
@@ -267,6 +269,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			Created:     common.FormatTime(c.Created),
 			Compose:     compose,
 			ProjectName: projectName,
+			ServiceName: serviceName,
 			CPU:         cpuStr,
 			Mem:         memStr,
 			IP:          ip,
