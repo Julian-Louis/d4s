@@ -2,7 +2,10 @@ package image
 
 import (
 	"fmt"
+	"io"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -16,15 +19,23 @@ import (
 type Manager struct {
 	cli *client.Client
 	ctx context.Context
+	
+	pullStatuses map[string]string
+	statusMu     sync.RWMutex
 }
 
 func NewManager(cli *client.Client, ctx context.Context) *Manager {
-	return &Manager{cli: cli, ctx: ctx}
+	return &Manager{
+		cli:          cli,
+		ctx:          ctx,
+		pullStatuses: make(map[string]string),
+	}
 }
 
 // Image Model
 type Image struct {
 	ID         string
+	RepoTag    string
 	Tags       string
 	Size       string
 	Created    string
@@ -41,6 +52,9 @@ func (i Image) GetCells() []string {
 }
 
 func (i Image) GetStatusColor() (tcell.Color, tcell.Color) {
+	if strings.Contains(i.Tags, "Pulling") {
+		return styles.ColorStatusOrange, styles.ColorBlack
+	}
 	return styles.ColorIdle, styles.ColorBlack
 }
 
@@ -68,7 +82,73 @@ func (i Image) GetDefaultSortColumn() string {
 	return "Tags" // Most recent first usually
 }
 
+func (m *Manager) SetPullStatus(tag string, status string) {
+	if m == nil {
+		return
+	}
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	
+	if m.pullStatuses == nil {
+		m.pullStatuses = make(map[string]string)
+	}
+
+	if status == "" {
+		delete(m.pullStatuses, tag)
+	} else {
+		m.pullStatuses[tag] = status
+	}
+}
+
+func (m *Manager) GetPullStatus(tag string) string {
+	if m == nil {
+		return ""
+	}
+	m.statusMu.RLock()
+	defer m.statusMu.RUnlock()
+	
+	if m.pullStatuses == nil {
+		return ""
+	}
+	
+	return m.pullStatuses[tag]
+}
+
+func (m *Manager) Pull(tag string) error {
+	if m == nil || m.cli == nil {
+		return fmt.Errorf("image manager not initialized")
+	}
+
+	m.SetPullStatus(tag, fmt.Sprintf(" [%s]⟳ Pulling...[-]", styles.ColorStatusOrange.String()))
+	
+	reader, err := m.cli.ImagePull(m.ctx, tag, image.PullOptions{})
+	if err != nil {
+		m.SetPullStatus(tag, " [red]✘ Error[-]")
+		go func() {
+			time.Sleep(5 * time.Second)
+			m.SetPullStatus(tag, "")
+		}()
+		return err
+	}
+	defer reader.Close()
+
+	// Consume output to wait for finish
+	_, _ = io.Copy(io.Discard, reader)
+
+	m.SetPullStatus(tag, fmt.Sprintf(" [%s]✔ Done[-]", styles.ColorSelect.String()))
+	go func() {
+		time.Sleep(5 * time.Second)
+		m.SetPullStatus(tag, "")
+	}()
+
+	return nil
+}
+
 func (m *Manager) List() ([]common.Resource, error) {
+	if m == nil || m.cli == nil {
+		return nil, fmt.Errorf("image manager not initialized")
+	}
+
 	list, err := m.cli.ImageList(m.ctx, image.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -77,19 +157,26 @@ func (m *Manager) List() ([]common.Resource, error) {
 	var res []common.Resource
 	for _, i := range list {
 		tags := "<none>"
+		rawTag := ""
+		
 		if len(i.RepoTags) > 0 {
-			t := i.RepoTags[0]
-			parts := strings.SplitN(t, ":", 2)
+			rawTag = i.RepoTags[0]
+			parts := strings.SplitN(rawTag, ":", 2)
 			if len(parts) == 2 {
 				// Image Name: [cyan]name[-]:[white]tag[-]
-				// But tview formatting...
 				tags = fmt.Sprintf("%s:%s", parts[0], parts[1])
 			} else {
-				tags = t
+				tags = rawTag
+			}
+
+			// Check Pull Status
+			if status := m.GetPullStatus(rawTag); status != "" {
+				tags += status
 			}
 		}
 		res = append(res, Image{
 			ID:         strings.TrimPrefix(i.ID, "sha256:"),
+			RepoTag:    rawTag,
 			Tags:       tags,
 			Size:       common.FormatBytes(i.Size),
 			Created:    common.FormatTime(i.Created),

@@ -46,6 +46,7 @@ type Container struct {
 	ID          string
 	Names       string
 	Image       string
+	ImageID     string
 	Status      string
 	State       string
 	Age         string
@@ -163,15 +164,18 @@ func (m *Manager) updateStats(containers []types.Container) {
 					return
 				}
 				
-				cpuPct, mem, limit := common.CalculateContainerStats(statsResp.Body)
+				cpuPct, mem, _ := common.CalculateContainerStats(statsResp.Body)
 				
-				cpuStr := fmt.Sprintf("%.1f%%", cpuPct)
-				memStr := ""
-				if limit > 0 {
-					memStr = fmt.Sprintf("%6.1f%% (%s)", float64(mem)/float64(limit)*100.0, common.FormatBytesFixed(int64(mem)))
-				} else {
-					memStr = fmt.Sprintf("%6.1f%% (%s)", 0.0, common.FormatBytesFixed(int64(mem)))
+				colorTag := ""
+				if cpuPct >= 90.0 {
+					colorTag = "[red::b]"
+				} else if cpuPct >= 75.0 {
+					colorTag = "[#fd540f::b]"
 				}
+
+				cpuStr := fmt.Sprintf("%s %3.0f %%", colorTag, cpuPct)
+
+				memStr := common.FormatBytesFixed(int64(mem))
 
 				m.statsMutex.Lock()
 				m.statsCache[id] = CachedStats{
@@ -220,8 +224,8 @@ func (m *Manager) List() ([]common.Resource, error) {
 		status, age := common.ParseStatus(c.Status)
 
 		// Fetch Stats from Cache
-		cpuStr := "..."
-		memStr := "..."
+		cpuStr := "-"
+		memStr := "-"
 		
 		if c.State != "running" {
 			cpuStr = "-"
@@ -262,6 +266,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			ID:          c.ID,
 			Names:       name,
 			Image:       imageName,
+			ImageID:     strings.TrimPrefix(c.ImageID, "sha256:"),
 			Status:      status,
 			Age:         age,
 			State:       c.State,

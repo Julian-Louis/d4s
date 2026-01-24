@@ -45,6 +45,23 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 				}
 			}
 			return scopedData, nil
+		} else if scope.Type == "image" {
+			var scopedData []dao.Resource
+			for _, res := range data {
+				if c, ok := res.(dao.Container); ok {
+					// 1. Match by ImageID (trimmed hash)
+					if c.ImageID != "" && (c.ImageID == scope.Value || strings.HasPrefix(c.ImageID, scope.Value)) {
+						scopedData = append(scopedData, res)
+						continue
+					}
+					
+					// 2. Fallback: Match by Image Name/Tag
+					if strings.HasPrefix(c.Image, scope.Value) || strings.Contains(c.Image, scope.Value) {
+						scopedData = append(scopedData, res)
+					}
+				}
+			}
+			return scopedData, nil
 		}
 	}
 	

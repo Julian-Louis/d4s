@@ -312,22 +312,35 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 // SetLoading shows/hides the loading state
 func (v *ResourceView) SetLoading(loading bool) {
 	v.IsLoading = loading
+	
+	// Create loading cell first to avoid nil pointer issues if any
+	loadingCell := tview.NewTableCell("Freshly squeezing data 🍊").
+		SetAlign(tview.AlignCenter).
+		SetTextColor(styles.ColorAccent).
+		SetExpansion(1).
+		SetSelectable(false)
+
 	if loading {
+		if v.Table == nil {
+			return
+		}
 		v.Table.Clear()
 		v.Data = nil
-		v.ColCount = 0
+		v.ColCount = 0 // Reset col count on loading
 		v.RawData = nil
 		v.SelectedIDs = make(map[string]bool)
 		
 		v.Table.SetTitle(fmt.Sprintf(" [#00ffff::b]%s[-::-] ~ [white]loading...[-] ", strings.ToLower(v.Title)))
 		
-		loadingCell := tview.NewTableCell("Freshly squeezing data 🍊").
-			SetAlign(tview.AlignCenter).
-			SetTextColor(styles.ColorAccent).
-			SetExpansion(1).
-			SetSelectable(false)
-
-		v.Table.SetCell(2, 0, loadingCell)
+		// Use Safe SetCell
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// Ignore set cell panic during loading
+				}
+			}()
+			v.Table.SetCell(2, 0, loadingCell)
+		}()
 	}
 }
 
@@ -524,6 +537,10 @@ func (v *ResourceView) GetCurrentColumnFocused() string {
 }
 
 func (v *ResourceView) renderAll() {
+	if v.Table == nil {
+		return
+	}
+	
 	v.Table.Clear()
 
 	v.processHighlightRequests()
@@ -576,9 +593,9 @@ func (v *ResourceView) renderAll() {
 			}
 
 			// Safe index check
-			if j < v.Table.GetColumnCount() {
-				v.Table.SetCell(rowIndex, j, cell)
-			}
+			// Note: GetColumnCount might be updated dynamically by tview as we added headers
+			// But we trust tview to handle sparse cells.
+			v.Table.SetCell(rowIndex, j, cell)
 		}
 	}
 

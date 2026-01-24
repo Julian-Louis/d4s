@@ -64,9 +64,9 @@ func GetHostStats(cli *client.Client, ctx context.Context, contextName string) (
 
 	return HostStats{
 		CPU:        fmt.Sprintf("%d", info.NCPU),
-		CPUPercent: "...", // Placeholder
+		CPUPercent: "-", // Placeholder
 		Mem:        memTotal,
-		MemPercent: "...", // Placeholder
+		MemPercent: "-", // Placeholder
 		Name:       info.Name,
 		Version:    info.ServerVersion,
 		Context:    contextName,

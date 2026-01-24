@@ -2,6 +2,7 @@ package images
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao"
@@ -22,6 +23,7 @@ func GetShortcuts() []string {
 	return []string{
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("p", "Prune"),
+		common.FormatSCHeader("r", "Pull"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 	}
 }
@@ -33,6 +35,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 	switch event.Rune() {
+	case 'r':
+		PullAction(app, v)
+		return nil
 	case 'p':
 		PruneAction(app)
 		return nil
@@ -40,7 +45,49 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		app.InspectCurrentSelection()
 		return nil
 	}
+	
+	if event.Key() == tcell.KeyEnter {
+		EnterAction(app, v)
+		return nil
+	}
+
 	return event
+}
+
+func EnterAction(app common.AppController, v *view.ResourceView) {
+	id, err := v.GetSelectedID()
+	if err != nil {
+		return
+	}
+
+	// Find the full image object just to be sure what we have
+	// Or just use the ID. The container view needs to know how to filter.
+	// We'll pass the Image ID as scope.
+	
+	// Get Name if possible for nicer display label
+	label := id
+	for _, it := range v.Data {
+		if it.GetID() == id {
+			if im, ok := it.(dao.Image); ok {
+				if im.Tags != "<none>" && im.Tags != "" {
+					label = im.Tags
+				}
+			}
+			break
+		}
+	}
+
+	// We'll use a special scope type 'image'
+	// But we need to make sure containers view supports it (already added beforehand)
+	scope := &common.Scope{
+		Type:       "image",
+		Value:      id, // Use ID for robust filtering
+		Label:      fmt.Sprintf("Image: %s", label),
+		OriginView: "Images",
+		Parent:     app.GetActiveScope(),
+	}
+	app.SetActiveScope(scope)
+	app.SwitchTo(styles.TitleContainers)
 }
 
 func PruneAction(app common.AppController) {
@@ -58,6 +105,51 @@ func PruneAction(app common.AppController) {
 			})
 		})
 	})
+}
+
+func PullAction(app common.AppController, v *view.ResourceView) {
+	ids, err := v.GetSelectedIDs()
+	if err != nil || len(ids) == 0 {
+		return
+	}
+
+	idMap := make(map[string]bool)
+	for _, id := range ids {
+		idMap[id] = true
+	}
+
+	count := 0
+	for _, item := range v.Data {
+		if idMap[item.GetID()] {
+			if img, ok := item.(dao.Image); ok {
+				if img.RepoTag != "" && img.RepoTag != "<none>" {
+					count++
+					tag := img.RepoTag
+
+					app.RunInBackground(func() {
+						err := app.GetDocker().PullImage(tag)
+						app.GetTviewApp().QueueUpdateDraw(func() {
+							if err != nil {
+								app.SetFlashError(fmt.Sprintf("Pull failed: %v", err))
+							}
+							app.RefreshCurrentView()
+						})
+					})
+				}
+			}
+		}
+	}
+
+	if count > 0 {
+		app.SetFlashPending(fmt.Sprintf("Pulling %d image(s)...", count))
+		// Force refresh to show status
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				app.RefreshCurrentView()
+			})
+		}()
+	}
 }
 
 func Inspect(app common.AppController, id string) {

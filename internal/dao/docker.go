@@ -258,6 +258,10 @@ func (d *DockerClient) PruneImages() error {
 	return d.Image.Prune()
 }
 
+func (d *DockerClient) PullImage(tag string) error {
+	return d.Image.Pull(tag)
+}
+
 func (d *DockerClient) CreateVolume(name string) error {
 	return d.Volume.Create(name)
 }

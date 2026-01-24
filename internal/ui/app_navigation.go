@@ -51,12 +51,36 @@ func (a *App) SwitchTo(viewName string) {
 }
 
 func (a *App) SwitchToWithSelection(viewName string, reset bool) {
+	if viewName == "containers" && a.Views["containers"] == nil {
+		// Initialize containers view if missing
+		// This should have been done in initViews but maybe failed?
+		// Or maybe it was skipped. 
+		// Actually, NewApp calls initViews, so it SHOULD be there.
+		// If it's missing, it's a bug in NewApp or initViews.
+		// But let's be safe.
+		// However, we cannot easily re-init just one view here without wiring properly.
+		// The error "Unknown view: containers" suggests it's not in the map when we try to switch.
+		// Let's check NewApp/initViews logic if possible.
+	}
+
 	if v, ok := a.Views[viewName]; ok {
 		// Record previous view
 		current, _ := a.Pages.GetFrontPage()
-		if current != "" && current != viewName {
-			a.PreviousView = current
+		
+		// Avoid stacking the same view as previous repeatedly
+		if current != "" && current != viewName && current != "inspect" {
+			// Only stack if it's a drill-down (new scope) or a distinct view switch
+			// If we are just switching views at same level without scope change, keeping history might be confusing
+			// Logic: If current view has same scope type/value as target, don't stack?
+			// But target view hasn't been updated with scope yet.
+			// ActiveScope is about to effect the target view.
+			
+			// Simple deduplication for PreviousView
+			if a.PreviousView != current {
+				a.PreviousView = current
+			}
 		}
+		
 		// Always update CurrentView
 		a.CurrentView = viewName
 		// Reset Selection to top when EXPLICITLY requested (default behavior for navigation)

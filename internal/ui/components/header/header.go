@@ -53,12 +53,12 @@ func (h *HeaderComponent) UpdateShortcuts(shortcuts []string) {
 }
 
 func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
-	// Merge with existing stats to avoid flickering "..."
-	// If new stats have "...", check if we have better old values
-	if stats.CPUPercent == "..." && h.LastStats.CPUPercent != "" && h.LastStats.CPUPercent != "..." {
+	// Merge with existing stats to avoid flickering "-"
+	// If new stats have "-", check if we have better old values
+	if stats.CPUPercent == "-" && h.LastStats.CPUPercent != "" && h.LastStats.CPUPercent != "-" {
 		stats.CPUPercent = h.LastStats.CPUPercent
 	}
-	if stats.MemPercent == "..." && h.LastStats.MemPercent != "" && h.LastStats.MemPercent != "..." {
+	if stats.MemPercent == "-" && h.LastStats.MemPercent != "" && h.LastStats.MemPercent != "-" {
 		stats.MemPercent = h.LastStats.MemPercent
 	}
 
@@ -74,18 +74,18 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	// 1. Stats View
 	// Build CPU display with cores and percentage
 	cpuDisplay := fmt.Sprintf("%s cores", stats.CPU)
-	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "..." {
+	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "-" {
 		cpuDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.CPUPercent)
-	} else if stats.CPUPercent == "..." {
-		cpuDisplay += " [dim](...)"
+	} else if stats.CPUPercent == "-" {
+		cpuDisplay += " [dim](-)"
 	}
 
 	// Build Mem display with total and percentage
 	memDisplay := stats.Mem
-	if stats.MemPercent != "" && stats.MemPercent != "N/A" && stats.MemPercent != "..." {
+	if stats.MemPercent != "" && stats.MemPercent != "N/A" && stats.MemPercent != "-" {
 		memDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.MemPercent)
-	} else if stats.MemPercent == "..." {
-		memDisplay += " [dim](...)"
+	} else if stats.MemPercent == "-" {
+		memDisplay += " [dim](-)"
 	}
 
 	versionStr := fmt.Sprintf("[orange]D4s Rev: [white]v%s", stats.D4SVersion)
