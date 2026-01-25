@@ -435,10 +435,19 @@ func (v *ResourceView) Refilter() {
 			} else {
 				lowerFilter := strings.ToLower(filterTerm)
 				contains := false
-				for _, cell := range cells {
-					if strings.Contains(strings.ToLower(cell), lowerFilter) {
-						contains = true
-						break
+				
+				// 1. Check ID first (if available) - Matches Task 2
+				if strings.Contains(strings.ToLower(item.GetID()), lowerFilter) {
+					contains = true
+				}
+
+				// 2. Check Visible Cells
+				if !contains {
+					for _, cell := range cells {
+						if strings.Contains(strings.ToLower(cell), lowerFilter) {
+							contains = true
+							break
+						}
 					}
 				}
 

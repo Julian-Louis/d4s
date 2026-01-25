@@ -16,7 +16,7 @@ func (a *App) ExecuteCmd(cmd string) {
 	cmd = strings.TrimPrefix(cmd, ":")
 
 	switchToRoot := func(title string) {
-		a.ActiveScope = nil
+		a.SafeSetScope(nil)
 		a.SwitchTo(title)
 	}
 
@@ -53,14 +53,6 @@ func (a *App) SwitchTo(viewName string) {
 func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 	if viewName == "containers" && a.Views["containers"] == nil {
 		// Initialize containers view if missing
-		// This should have been done in initViews but maybe failed?
-		// Or maybe it was skipped. 
-		// Actually, NewApp calls initViews, so it SHOULD be there.
-		// If it's missing, it's a bug in NewApp or initViews.
-		// But let's be safe.
-		// However, we cannot easily re-init just one view here without wiring properly.
-		// The error "Unknown view: containers" suggests it's not in the map when we try to switch.
-		// Let's check NewApp/initViews logic if possible.
 	}
 
 	if v, ok := a.Views[viewName]; ok {
@@ -70,10 +62,6 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 		// Avoid stacking the same view as previous repeatedly
 		if current != "" && current != viewName && current != "inspect" {
 			// Only stack if it's a drill-down (new scope) or a distinct view switch
-			// If we are just switching views at same level without scope change, keeping history might be confusing
-			// Logic: If current view has same scope type/value as target, don't stack?
-			// But target view hasn't been updated with scope yet.
-			// ActiveScope is about to effect the target view.
 			
 			// Simple deduplication for PreviousView
 			if a.PreviousView != current {
@@ -83,6 +71,10 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 		
 		// Always update CurrentView
 		a.CurrentView = viewName
+		
+		// Flush/Clear manual selection on view switch
+		v.SelectedIDs = make(map[string]bool)
+
 		// Reset Selection to top when EXPLICITLY requested (default behavior for navigation)
 		if reset && v.Table.GetRowCount() > 1 {
 			v.Table.Select(1, 0)
@@ -109,7 +101,11 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 			v.SetLoading(true)
 		}
 
-		go a.RefreshCurrentView()
+		// Don't spawn a goroutine here! 
+		// RefreshCurrentView accesses UI state (ActiveScope, FrontPage) and calls UpdateShortcuts (UI).
+		// It internally spawns a background task for the heavy lifting.
+		// Running it in 'go' causes race conditions with UI drawing.
+		a.RefreshCurrentView()
 		a.updateHeader()
 		a.TviewApp.SetFocus(a.Pages) // Usually focus page, but actually table
 

@@ -47,6 +47,7 @@ type App struct {
 	// State
 	ActiveFilter    string
 	ActiveScope     *common.Scope
+	scopeMx         sync.RWMutex
 	ActiveInspector common.Inspector
 	PreviousView    string
 	CurrentView     string // Track current view name before inspector
@@ -156,14 +157,28 @@ func (a *App) StartAutoRefresh() {
 		defer ticker.Stop()
 
 		// Immediate update on start
-		a.RefreshCurrentView()
-		a.updateHeader()
+		// a.RefreshCurrentView() calls a.UpdateShortcuts() which calls tview methods. 
+		// Since we are in a goroutine here, we MUST queue.
+		a.SafeQueueUpdateDraw(func() {
+			// Actually RefreshCurrentView spawns BG task, so we shouldn't wrap the whole thing?
+			// RefreshCurrentView has:
+			// 1. GetFrontPage (Read UI) -> Needs Queue or Lock
+			// 2. UpdateShortcuts (Write UI) -> Needs Queue
+			// 3. RunInBackground -> Spawns BG
+			// So calling RefreshCurrentView from BG is inherently unsafe if not wrapped.
+			// But RefreshCurrentView spawns BG, so wrapping it might block UI while it spawns? No spawning is fast.
+			// However, RefreshCurrentView reads "v.FetchFunc".
+			a.RefreshCurrentView()
+			a.updateHeader()
+		})
 
 		for {
 			select {
 			case <-ticker.C:
-				a.RefreshCurrentView()
-				a.updateHeader()
+				a.SafeQueueUpdateDraw(func() {
+					a.RefreshCurrentView()
+					a.updateHeader()
+				})
 			case <-a.stopTicker:
 				return
 			}
@@ -202,6 +217,11 @@ func (a *App) initUI() {
 	vImages.RemoveFunc = images.Remove
 	vImages.PruneFunc = images.Prune
 	vImages.Headers = images.Headers
+	
+	// Default Sort: Containers (Index 3) DESC
+	vImages.SortCol = 3 
+	vImages.SortAsc = false
+
 	vImages.InputHandler = func(event *tcell.EventKey) *tcell.EventKey {
 		return images.InputHandler(vImages, event)
 	}
@@ -337,11 +357,12 @@ func (a *App) initUI() {
 			}
 
 			// Priority 2: Exit scope if active (return to origin view)
-			if a.ActiveScope != nil {
-				origin := a.ActiveScope.OriginView
-				parent := a.ActiveScope.Parent
+			scope := a.GetActiveScope()
+			if scope != nil {
+				origin := scope.OriginView
+				parent := scope.Parent
 				
-				a.ActiveScope = parent // Pop breadcrumb
+				a.SafeSetScope(parent) // Pop breadcrumb
 				
 				// Navigate back: either to parent's active view (if we can infer it?)
 				// Or use OriginView. OriginView is the view we were in when we drilled down.
@@ -435,6 +456,9 @@ func (a *App) GetDocker() *dao.DockerClient {
 }
 
 func (a *App) SetActiveScope(scope *common.Scope) {
+	a.scopeMx.Lock()
+	defer a.scopeMx.Unlock()
+
 	// If different from current, stack it
 	if a.ActiveScope != nil {
 		// Only stack if it's a new drill-down (different value or type)
@@ -448,7 +472,15 @@ func (a *App) SetActiveScope(scope *common.Scope) {
 }
 
 func (a *App) GetActiveScope() *common.Scope {
+	a.scopeMx.RLock()
+	defer a.scopeMx.RUnlock()
 	return a.ActiveScope
+}
+
+func (a *App) SafeSetScope(scope *common.Scope) {
+	a.scopeMx.Lock()
+	defer a.scopeMx.Unlock()
+	a.ActiveScope = scope
 }
 
 func (a *App) SetFilter(filter string) {
@@ -642,7 +674,10 @@ func (a *App) SafeQueueUpdateDraw(f func()) {
 		return
 	}
 
-	a.TviewApp.QueueUpdateDraw(func() {
+	// ALWAYS run QueueUpdateDraw in a goroutine to avoid deadlocks if called from within a callback 
+	// that holds internal tview locks (though QueueUpdateDraw is supposed to be safe, sometimes it blocks).
+	// Actually, QueueUpdateDraw puts it in a channel.
+	go a.TviewApp.QueueUpdateDraw(func() {
 		a.pauseMx.RLock()
 		isPausedNow := a.paused
 		a.pauseMx.RUnlock()

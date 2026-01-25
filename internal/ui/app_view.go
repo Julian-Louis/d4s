@@ -44,11 +44,12 @@ func (a *App) RefreshCurrentView() {
 				baseView = "containers" // Default fallback
 			}
 			
+			scope := a.GetActiveScope()
 			// If we have ActiveScope, it means we are in drilled down mode
-			if a.ActiveScope != nil {
+			if scope != nil {
 				// E.g. <compose> <containers> <logs>
 				var breadcrumbs []string
-				curr := a.ActiveScope
+				curr := scope
 				for curr != nil {
 					if curr.OriginView != "" {
 						breadcrumbs = append([]string{curr.OriginView}, breadcrumbs...)
@@ -115,11 +116,12 @@ func (a *App) RefreshCurrentView() {
 	
 	filter := a.ActiveFilter
 
-	// 1. Immediate Updates (Optimistic UI) - Inside Queue not needed if Ticker calls this?
-	// Ticker runs in BG. `UpdateShortcuts` accesses UI. Should be queued.
-	// But let's revert to "working but racy" to fix the "broken views" regression first.
-	// a.UpdateShortcuts() -> Moved inside SafeQueueUpdateDraw if needed, but keeping as is for now unless asked.
-	// NOTE: UpdateShortcuts() calls existing UI methods which might not be thread safe from ticker.
+	// 1. Immediate Updates (Optimistic UI)
+	// UpdateShortcuts modifies the UI. Must be called from main thread.
+	// Since RefreshCurrentView is sometimes called from valid UI context (SwitchTo) 
+	// and sometimes from BG (Ticker -> QueueUpdateDraw), we assume we are in Main Thread here IF caller respected rules.
+	// BUT, we previously wrapped Ticker calls in QueueUpdateDraw.
+	// So UpdateShortcuts is safe here.
 	a.UpdateShortcuts()
 	
 	a.RunInBackground(func() {
@@ -149,7 +151,7 @@ func (a *App) RefreshCurrentView() {
 			}
 			
 			v.SetFilter(filter)
-			v.CurrentScope = a.ActiveScope
+			v.CurrentScope = a.GetActiveScope()
 
 			if err != nil {
 				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
@@ -162,11 +164,12 @@ func (a *App) RefreshCurrentView() {
 
 				// Only update flash if not error
 				status := ""
-				if a.ActiveScope != nil {
+				scope := a.GetActiveScope()
+				if scope != nil {
 					// Dynamic breadcrumb trail coloring: last is always orange, others cyan
 					// Traverse up to get full history
 					var breadcrumbs []string
-					curr := a.ActiveScope
+					curr := scope
 					for curr != nil {
 						if curr.OriginView != "" {
 							breadcrumbs = append([]string{curr.OriginView}, breadcrumbs...)
@@ -217,11 +220,12 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 	title := fmt.Sprintf(" [#00ffff::b]%s[#00ffff][[white]%s[#00ffff]] ", viewName, countStr)
 	
 	// Dynamic recursive breadcrumb
-	if a.ActiveScope != nil {
+	scope := a.GetActiveScope()
+	if scope != nil {
 		var parts []string
 		
 		// Walk up the stack
-		curr := a.ActiveScope
+		curr := scope
 		for curr != nil {
 			cleanLabel := strings.ReplaceAll(curr.Label, "@", "[white] @ [#ff00ff]")
 			origin := strings.ToLower(curr.OriginView)
@@ -275,6 +279,8 @@ func (a *App) InspectCurrentSelection() {
 	
 	if view.InspectFunc != nil {
 		view.InspectFunc(a, id)
+		// InspectFunc typically opens a new modal or changes view.
+		// We should refresh shortcuts to reflect the new state immediately.
 		a.UpdateShortcuts()
 		return
 	}

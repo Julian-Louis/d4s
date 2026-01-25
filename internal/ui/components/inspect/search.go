@@ -30,9 +30,6 @@ func (s *SearchController) ApplyFilter(filter string) {
 
 // ProcessContent scans the content for the filter string, wraps matches in region tags,
 // and returns the modified content plus a list of region IDs.
-// Note: This operates on the string with tview color tags already applied.
-// Matches inside tags or spanning tags may be missed or cause artifacts, 
-// but this is a tradeoff for performance/simplicity in this context.
 func (s *SearchController) ProcessContent(content, filter string) (string, []string) {
 	if filter == "" {
 		return content, nil

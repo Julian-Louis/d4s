@@ -30,8 +30,11 @@ func (a *App) getCurrentShortcuts() []string {
 
 func (a *App) UpdateShortcuts() {
 	shortcuts := a.getCurrentShortcuts()
+	
+	// Let's assume UpdateShortcuts MIGHT be called from BG.
 	a.Header.UpdateShortcuts(shortcuts)
-	a.TviewApp.ForceDraw()
+
+	// a.TviewApp.ForceDraw() // This is dangerous from BG.
 }
 
 func (a *App) updateHeader() {
