@@ -118,7 +118,7 @@ There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING
 [<img src="./docs/img/social/github.png" width="64">](https://github.com/jr-k/d4s/issues/new/choose)
 
 ---
-*Built with Go & Tview. Inspired by the legendary K9s.*
+*Built with Go & Tview. Inspired by K9s.*
 
-*D4s is made possible by a rich set of open source projects and libraries. We are truly thankful to the OSS contributors who generously share their time, care, and effort to support and allow this work.*
+*D4s uses several open source libraries. Thanks to the maintainers who make this possible.*
 

@@ -14,7 +14,7 @@ import (
 )
 
 // TextViewer encapsulates a TextView with syntax highlighting, search, and navigation.
-// It is intended to be used by Inspectors that need to display text/json/yaml.
+// Used by Inspectors for displaying text/json/yaml.
 type TextViewer struct {
 	View   *tview.TextView
 	Search *SearchController
