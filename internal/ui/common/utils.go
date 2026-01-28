@@ -1,9 +1,9 @@
 package common
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
-	"regexp"
 )
 
 // StripColorTags removes tview color tags from a string
@@ -31,7 +31,15 @@ func CompareValues(a, b string) bool {
 		return parseBytes(cleanA) < parseBytes(cleanB)
 	}
 
-	// 3. Default String Compare (case insensitive on clean text)
+	// 3. Numeric (Integers/Floats)
+	// Try parsing as float to handle both simple integers and potential decimals
+	fA, errA := strconv.ParseFloat(cleanA, 64)
+	fB, errB := strconv.ParseFloat(cleanB, 64)
+	if errA == nil && errB == nil {
+		return fA < fB
+	}
+
+	// 4. Default String Compare (case insensitive on clean text)
 	return strings.ToLower(cleanA) < strings.ToLower(cleanB)
 }
 
