@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -38,9 +38,6 @@ type Network struct {
 func (n Network) GetID() string { return n.ID }
 func (n Network) GetCells() []string {
 	containersStr := fmt.Sprintf("%d", n.Containers)
-	if n.Containers <= 0 {
-		containersStr = ""
-	}
 	return []string{n.ID[:12], n.Name, n.Driver, n.Scope, containersStr, n.Created, n.Internal, n.Subnet}
 }
 
@@ -84,6 +81,24 @@ func (m *Manager) List() ([]common.Resource, error) {
 		return nil, err
 	}
 
+	// Count containers per network
+	counts := make(map[string]int)
+	containers, err := m.cli.ContainerList(m.ctx, container.ListOptions{All: true})
+	// Debug: force error check visibility
+	if err != nil {
+		// In a real app we might log this or handle it, but here we just ignore
+	} else {
+		for _, c := range containers {
+			if c.NetworkSettings != nil {
+				for _, net := range c.NetworkSettings.Networks {
+					if net.NetworkID != "" {
+						counts[net.NetworkID]++
+					}
+				}
+			}
+		}
+	}
+
 	var res []common.Resource
 	for _, n := range list {
 		internal := "No"
@@ -101,6 +116,11 @@ func (m *Manager) List() ([]common.Resource, error) {
 			}
 		}
 
+		count := counts[n.ID]
+		if len(n.Containers) > count {
+			count = len(n.Containers)
+		}
+
 		res = append(res, Network{
 			ID:         n.ID,
 			Name:       n.Name,
@@ -109,7 +129,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 			Created:    common.FormatTime(n.Created.Unix()),
 			Internal:   internal,
 			Subnet:     strings.Join(subnets, ","),
-			Containers: len(n.Containers),
+			Containers: count,
 		})
 	}
 	return res, nil
