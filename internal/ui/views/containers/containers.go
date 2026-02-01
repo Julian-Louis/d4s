@@ -497,9 +497,6 @@ func NetworksPicker(app common.AppController, v *view.ResourceView) {
 	var items []dialogs.MultiPickerItem
 	for _, res := range allNetworks {
 		if n, ok := res.(dao.Network); ok {
-			if n.Scope == "swarm" {
-				continue
-			}
 			items = append(items, dialogs.MultiPickerItem{
 				ID:       n.ID,
 				Label:    n.Name,
