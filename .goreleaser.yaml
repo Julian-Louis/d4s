@@ -94,6 +94,14 @@ nfpms:
     formats:
       - deb
       - rpm
+      - apk
+      - ipk
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/d4s/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/d4s/README.md
+    bindir: /usr/bin
 
 scoops:
   - name: d4s
