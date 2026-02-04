@@ -106,9 +106,10 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("m", "Monitor"),
 		common.FormatSCHeader("v", "Volumes"),
 		common.FormatSCHeader("n", "Networks"),
-		common.FormatSCHeader("shift-n", "Attach Network"),
 		common.FormatSCHeader("r", "(Re)Start"),
 		common.FormatSCHeader("p", "Prune"),
+		common.FormatSCHeader("shift-s", "Root Shell"),
+		common.FormatSCHeader("shift-n", "Attach Network"),
 		common.FormatSCHeader("ctrl-k", "Stop"),
 	}
 }
@@ -153,7 +154,14 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		// Shell
 		id, err := v.GetSelectedID()
 		if err == nil {
-			Shell(app, id)
+			Shell(app, id, false)
+		}
+		return nil
+	case 'S':
+		// Root Shell
+		id, err := v.GetSelectedID()
+		if err == nil {
+			Shell(app, id, true)
 		}
 		return nil
 	case 'd':
@@ -328,7 +336,7 @@ func Describe(app common.AppController, v *view.ResourceView) {
 	app.OpenInspector(inspect.NewTextInspector("Describe container", subject, content, "json"))
 }
 
-func Shell(app common.AppController, id string) {
+func Shell(app common.AppController, id string, asRoot bool) {
 	// Stop any background refresh to prevent UI updates interfering with the shell
 	app.StopAutoRefresh()
 
@@ -355,7 +363,12 @@ func Shell(app common.AppController, id string) {
 
 		for _, shell := range shells {
 			// Check if shell exists
-			checkCmd := exec.Command("docker", "exec", id, shell, "-c", "exit 0")
+			var checkCmd *exec.Cmd
+			if asRoot {
+				checkCmd = exec.Command("docker", "exec", "-u", "root", id, shell, "-c", "exit 0")
+			} else {
+				checkCmd = exec.Command("docker", "exec", id, shell, "-c", "exit 0")
+			}
 			if err := checkCmd.Run(); err == nil {
 				selectedShell = shell
 				break
@@ -369,13 +382,22 @@ func Shell(app common.AppController, id string) {
 		}
 
 		fmt.Print("\033[H\033[2J")
-		fmt.Printf("Entering shell %s for %s (type 'exit' or CTRL+D to return)...\n", selectedShell, id)
+		shellMode := ""
+		if asRoot {
+			shellMode = " (root)"
+		}
+		fmt.Printf("Entering shell %s%s for %s (type 'exit' or CTRL+D to return)...\n", selectedShell, shellMode, id)
 
 		// Use proper PTY handling or simple command depending on platform
 		// For basic usage, standard io connection is usually enough but Suspend/Restore is tricky
 		// We MUST ensure tview is fully suspended
 
-		cmd := exec.Command("docker", "exec", "-it", id, selectedShell)
+		var cmd *exec.Cmd
+		if asRoot {
+			cmd = exec.Command("docker", "exec", "-u", "root", "-it", id, selectedShell)
+		} else {
+			cmd = exec.Command("docker", "exec", "-it", id, selectedShell)
+		}
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
