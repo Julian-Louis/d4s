@@ -2,7 +2,6 @@ name: build
 
 on:
   push:
-    # run only against tags
     tags:
       - "v*"
 
@@ -14,7 +13,7 @@ permissions:
   attestations: write
 
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,28 +36,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
-      # More assembly might be required: Docker logins, GPG, etc.
-      # It all depends on your needs.
-      - name: Run GoReleaser
+
+      - name: Run GoReleaser (build only)
         uses: goreleaser/goreleaser-action@v6
         with:
-          # either 'goreleaser' (default) or 'goreleaser-pro'
           distribution: goreleaser
-          # 'latest', 'nightly', or a semver
           version: "~> v2"
-          args: release --clean
+          args: release --clean --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-      - uses: actions/attest-build-provenance@v3
-        with:
-          subject-checksums: ./dist/checksums.txt
-      # After GoReleaser runs, attest all the images in ./dist/digests.txt:
-      - uses: actions/attest-build-provenance@v3
-        if: startsWith(github.ref, 'refs/tags/v') # snapshots won't push docker images
-        with:
-          subject-checksums: ./dist/digests.txt
 
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
@@ -68,10 +54,11 @@ jobs:
 
   xbps:
     runs-on: ubuntu-latest
-    needs: goreleaser
+    needs: build
     container:
       image: ghcr.io/void-linux/void-glibc-full:latest
     strategy:
+      fail-fast: true
       matrix:
         include:
           - arch: x86_64
@@ -100,25 +87,23 @@ jobs:
       - name: Build XBPS package
         run: |
           xbps-install -Sy xbps
-          
+
           BINARY="dist/d4s_linux_${{ matrix.goreleaser_arch }}*/d4s"
           if [ "${{ matrix.goreleaser_arch }}" = "armv6" ]; then
             BINARY="dist/d4s_linux_arm_6/d4s"
           elif [ "${{ matrix.goreleaser_arch }}" = "armv7" ]; then
             BINARY="dist/d4s_linux_arm_7/d4s"
           fi
-          
-          # Create package structure
+
           PKG_DIR="pkg_${{ matrix.arch }}"
           mkdir -p "${PKG_DIR}/usr/bin"
           mkdir -p "${PKG_DIR}/usr/share/doc/d4s"
-          
+
           cp ${BINARY} "${PKG_DIR}/usr/bin/d4s"
           chmod 755 "${PKG_DIR}/usr/bin/d4s"
-          cp dist/d4s_linux_${{ matrix.goreleaser_arch }}*/LICENSE* "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || cp LICENSE "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || true
-          cp dist/d4s_linux_${{ matrix.goreleaser_arch }}*/README* "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || cp README.md "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || true
-          
-          # Create XBPS package
+          cp dist/d4s_linux_${{ matrix.goreleaser_arch }}*/LICENSE* "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || true
+          cp dist/d4s_linux_${{ matrix.goreleaser_arch }}*/README* "${PKG_DIR}/usr/share/doc/d4s/" 2>/dev/null || true
+
           cd "${PKG_DIR}"
           xbps-create -A ${{ matrix.arch }} \
             -n "d4s-${{ steps.version.outputs.version }}_1" \
@@ -129,16 +114,15 @@ jobs:
             .
           mv *.xbps ../
 
-      - name: Upload XBPS to release
-        env:
-          GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-        run: |
-          xbps-install -Sy github-cli
-          gh release upload "${{ github.ref_name }}" *.xbps --repo "${{ github.repository }}"
+      - name: Upload XBPS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xbps-${{ matrix.arch }}
+          path: "*.xbps"
 
   gentoo:
     runs-on: ubuntu-latest
-    needs: goreleaser
+    needs: build
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
@@ -152,37 +136,21 @@ jobs:
           VERSION=$(cat dist/metadata.json | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Checkout or create overlay repository
-        env:
-          GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-        run: |
-          if ! gh repo view jr-k/gentoo-d4s &>/dev/null; then
-            gh repo create jr-k/gentoo-d4s --public --description "Gentoo overlay for d4s"
-            sleep 2
-          fi
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git" overlay || {
-            mkdir -p overlay
-            cd overlay
-            git init
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git"
-          }
-
-      - name: Generate ebuild and Manifest
+      - name: Generate ebuild
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          EBUILD_DIR="overlay/app-misc/d4s"
+          EBUILD_DIR="gentoo-overlay/app-misc/d4s"
           mkdir -p "${EBUILD_DIR}"
-          
-          # Create ebuild
+
           cat > "${EBUILD_DIR}/d4s-${VERSION}.ebuild" << 'EBUILD_EOF'
           # Copyright 2024 Gentoo Authors
           # Distributed under the terms of the Apache-2.0 license
-          
+
           EAPI=8
-          
+
           DESCRIPTION="Master Docker like a pro, right from your terminal"
           HOMEPAGE="https://d4scli.io https://github.com/jr-k/d4s"
-          
+
           BASE_URI="https://github.com/jr-k/d4s/releases/download/v${PV}"
           SRC_URI="
               amd64? ( ${BASE_URI}/d4s_${PV}_linux_amd64.tar.gz )
@@ -190,41 +158,141 @@ jobs:
               arm? ( ${BASE_URI}/d4s_${PV}_linux_armv7.tar.gz )
               x86? ( ${BASE_URI}/d4s_${PV}_linux_x86.tar.gz )
           "
-          
+
           LICENSE="Apache-2.0"
           SLOT="0"
           KEYWORDS="~amd64 ~arm ~arm64 ~x86"
-          
+
           RDEPEND=""
           DEPEND=""
-          
+
           S="${WORKDIR}"
-          
+
           QA_PREBUILT="usr/bin/d4s"
-          
+
           src_install() {
               dobin d4s
               dodoc README.md LICENSE
           }
           EBUILD_EOF
-          
-          # Remove leading spaces from heredoc
+
           sed -i 's/^          //' "${EBUILD_DIR}/d4s-${VERSION}.ebuild"
-          
-          # Create metadata if not exists
-          mkdir -p overlay/metadata
-          cat > overlay/metadata/layout.conf << 'EOF'
+
+          mkdir -p gentoo-overlay/metadata
+          cat > gentoo-overlay/metadata/layout.conf << 'EOF'
           masters = gentoo
           auto-sync = false
           EOF
-          sed -i 's/^          //' overlay/metadata/layout.conf
-          
-          # Create profiles if not exists
-          mkdir -p overlay/profiles
-          echo "gentoo-d4s" > overlay/profiles/repo_name
-          
-          # Generate Manifest with checksums
-          cd "${EBUILD_DIR}"
+          sed -i 's/^          //' gentoo-overlay/metadata/layout.conf
+
+          mkdir -p gentoo-overlay/profiles
+          echo "gentoo-d4s" > gentoo-overlay/profiles/repo_name
+
+      - name: Upload gentoo overlay artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gentoo-overlay
+          path: gentoo-overlay/
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build, xbps, gentoo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GORELEASER_GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Download all XBPS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: xbps-*
+          path: xbps-packages/
+          merge-multiple: true
+
+      - name: Download gentoo overlay
+        uses: actions/download-artifact@v4
+        with:
+          name: gentoo-overlay
+          path: gentoo-overlay/
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(cat dist/metadata.json | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Copy XBPS packages to dist
+        run: cp xbps-packages/*.xbps dist/
+
+      - name: Run GoReleaser (publish)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+      - name: Upload XBPS packages to release
+        env:
+          GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" xbps-packages/*.xbps --repo "${{ github.repository }}"
+
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-checksums: ./dist/checksums.txt
+
+      - uses: actions/attest-build-provenance@v3
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          subject-checksums: ./dist/digests.txt
+
+      - name: Generate Gentoo Manifest and push overlay
+        env:
+          GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if ! gh repo view jr-k/gentoo-d4s &>/dev/null; then
+            gh repo create jr-k/gentoo-d4s --public --description "Gentoo overlay for d4s"
+            sleep 2
+          fi
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git" overlay || {
+            mkdir -p overlay
+            cd overlay
+            git init
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git"
+            cd ..
+          }
+
+          cp -r gentoo-overlay/* overlay/
+
+          cd overlay/app-misc/d4s
           for arch in amd64 arm64 armv7 x86; do
             TARBALL="d4s_${VERSION}_linux_${arch}.tar.gz"
             URL="https://github.com/jr-k/d4s/releases/download/v${VERSION}/${TARBALL}"
@@ -234,12 +302,10 @@ jobs:
             BLAKE2B=$(b2sum "/tmp/${TARBALL}" | cut -d' ' -f1)
             echo "DIST ${TARBALL} ${SIZE} BLAKE2B ${BLAKE2B} SHA512 ${SHA512}" >> Manifest
           done
+          cd ../../..
 
-      - name: Commit and push overlay
-        working-directory: overlay
-        run: |
           git config user.name "GoReleaser Bot"
           git config user.email "bot@goreleaser.com"
           git add -A
-          git commit -m "Update d4s to ${{ steps.version.outputs.version }}" || exit 0
+          git commit -m "Update d4s to ${VERSION}" || exit 0
           git push
