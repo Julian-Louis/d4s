@@ -152,12 +152,20 @@ jobs:
           VERSION=$(cat dist/metadata.json | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Checkout overlay repository
-        uses: actions/checkout@v4
-        with:
-          repository: jr-k/gentoo-d4s
-          token: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-          path: overlay
+      - name: Checkout or create overlay repository
+        env:
+          GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+        run: |
+          if ! gh repo view jr-k/gentoo-d4s &>/dev/null; then
+            gh repo create jr-k/gentoo-d4s --public --description "Gentoo overlay for d4s"
+            sleep 2
+          fi
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git" overlay || {
+            mkdir -p overlay
+            cd overlay
+            git init
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git"
+          }
 
       - name: Generate ebuild and Manifest
         run: |
