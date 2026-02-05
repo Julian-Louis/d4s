@@ -219,33 +219,24 @@ jobs:
         with:
           go-version: stable
 
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
       - name: Download all XBPS artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: xbps-*
-          path: xbps-packages/
+          path: ${{ runner.temp }}/xbps-packages/
           merge-multiple: true
 
       - name: Download gentoo overlay
         uses: actions/download-artifact@v4
         with:
           name: gentoo-overlay
-          path: gentoo-overlay/
+          path: ${{ runner.temp }}/gentoo-overlay/
 
       - name: Extract version
         id: version
         run: |
-          VERSION=$(cat dist/metadata.json | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+          VERSION="${GITHUB_REF_NAME#v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Copy XBPS packages to dist
-        run: cp xbps-packages/*.xbps dist/
 
       - name: Run GoReleaser (publish)
         uses: goreleaser/goreleaser-action@v6
@@ -260,7 +251,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.ref_name }}" xbps-packages/*.xbps --repo "${{ github.repository }}"
+          gh release upload "${{ github.ref_name }}" ${{ runner.temp }}/xbps-packages/*.xbps --repo "${{ github.repository }}"
 
       - uses: actions/attest-build-provenance@v3
         with:
@@ -276,23 +267,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          OVERLAY_DIR="${{ runner.temp }}/overlay"
 
           if ! gh repo view jr-k/gentoo-d4s &>/dev/null; then
             gh repo create jr-k/gentoo-d4s --public --description "Gentoo overlay for d4s"
             sleep 2
           fi
 
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git" overlay || {
-            mkdir -p overlay
-            cd overlay
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git" "${OVERLAY_DIR}" || {
+            mkdir -p "${OVERLAY_DIR}"
+            cd "${OVERLAY_DIR}"
             git init
             git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/jr-k/gentoo-d4s.git"
-            cd ..
+            cd -
           }
 
-          cp -r gentoo-overlay/* overlay/
+          cp -r ${{ runner.temp }}/gentoo-overlay/* "${OVERLAY_DIR}/"
 
-          cd overlay/app-misc/d4s
+          cd "${OVERLAY_DIR}/app-misc/d4s"
           for arch in amd64 arm64 armv7 x86; do
             TARBALL="d4s_${VERSION}_linux_${arch}.tar.gz"
             URL="https://github.com/jr-k/d4s/releases/download/v${VERSION}/${TARBALL}"
@@ -302,7 +294,7 @@ jobs:
             BLAKE2B=$(b2sum "/tmp/${TARBALL}" | cut -d' ' -f1)
             echo "DIST ${TARBALL} ${SIZE} BLAKE2B ${BLAKE2B} SHA512 ${SHA512}" >> Manifest
           done
-          cd ../../..
+          cd "${OVERLAY_DIR}"
 
           git config user.name "GoReleaser Bot"
           git config user.email "bot@goreleaser.com"
