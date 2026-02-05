@@ -96,6 +96,7 @@ nfpms:
       - rpm
       - apk
       - ipk
+      - archlinux
     contents:
       - src: LICENSE
         dst: /usr/share/doc/d4s/LICENSE
