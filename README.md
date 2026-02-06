@@ -54,9 +54,10 @@ brew install jr-k/d4s/d4s
 <summary><b>APT (Debian/Ubuntu)</b></summary>
 
 ```bash
-curl -fsSL https://apt.d4scli.io/d4s.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/d4s.gpg
+sudo apt install -y gpg && curl -fsSL https://apt.d4scli.io/d4s.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/d4s.gpg
 echo "deb [signed-by=/usr/share/keyrings/d4s.gpg] https://apt.d4scli.io stable main" | sudo tee /etc/apt/sources.list.d/d4s.list
-sudo apt update && sudo apt install d4s
+sudo apt update
+sudo apt install d4s
 ```
 </details>
 
@@ -77,20 +78,6 @@ sudo dnf install d4s
 </details>
 
 <details>
-<summary><b>Pacman (Arch Linux)</b></summary>
-
-```bash
-sudo tee -a /etc/pacman.conf <<EOF
-
-[d4s]
-SigLevel = Optional TrustAll
-Server = https://pacman.d4scli.io
-EOF
-sudo pacman -Sy d4s
-```
-</details>
-
-<details>
 <summary><b>Zypper (openSUSE)</b></summary>
 
 ```bash
@@ -101,43 +88,12 @@ sudo zypper install d4s
 </details>
 
 <details>
-<summary><b>APK (Alpine)</b></summary>
-
-```bash
-echo "https://apk.d4scli.io/v3.18/main" >> /etc/apk/repositories
-apk update && apk add d4s
-```
-</details>
-
-<details>
-<summary><b>XBPS (Void Linux)</b></summary>
-
-```bash
-echo "repository=https://xbps.d4scli.io/current" | sudo tee /etc/xbps.d/d4s.conf
-sudo xbps-install -S d4s
-```
-</details>
-
-<details>
-<summary><b>Emerge (Gentoo)</b></summary>
-
-```bash
-# Add to /etc/portage/binrepos.conf
-sudo tee /etc/portage/binrepos.conf/d4s.conf <<EOF
-[d4s]
-sync-uri = https://emerge.d4scli.io/packages
-EOF
-sudo emerge --sync
-sudo emerge -G d4s
-```
-</details>
-
-<details>
 <summary><b>OPKG (OpenWrt)</b></summary>
 
 ```bash
 echo "src/gz d4s https://opkg.d4scli.io" >> /etc/opkg/customfeeds.conf
-opkg update && opkg install d4s
+opkg update
+opkg install d4s
 ```
 </details>
 
