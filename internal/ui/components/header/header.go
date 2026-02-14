@@ -15,9 +15,10 @@ type HeaderComponent struct {
 	ShortcutsView *tview.Table
 	LogoView      *tview.Table
 	LastStats     dao.HostStats
+	Logoless      bool
 }
 
-func NewHeaderComponent() *HeaderComponent {
+func NewHeaderComponent(logoless bool) *HeaderComponent {
 	// Stats (Left)
 	stats := tview.NewTable().SetBorders(false)
 	stats.SetBackgroundColor(styles.ColorBg)
@@ -34,17 +35,19 @@ func NewHeaderComponent() *HeaderComponent {
 	flex := tview.NewFlex().SetDirection(tview.FlexColumn)
 	flex.SetBackgroundColor(styles.ColorBg)
 
-	// Add items: Stats (fixed), Shortcuts (flex), Logo (fixed)
-	// Initial sizes 0, will be updated in Update()
+	// Add items: Stats (fixed), Shortcuts (flex), Logo (fixed unless logoless)
 	flex.AddItem(stats, 0, 0, false)
 	flex.AddItem(shortcuts, 0, 1, false)
-	flex.AddItem(logo, 0, 0, false)
+	if !logoless {
+		flex.AddItem(logo, 0, 0, false)
+	}
 
 	return &HeaderComponent{
 		View:          flex,
 		StatsView:     stats,
 		ShortcutsView: shortcuts,
 		LogoView:      logo,
+		Logoless:      logoless,
 	}
 }
 
@@ -75,37 +78,37 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	// Build CPU display with cores and percentage
 	cpuDisplay := fmt.Sprintf("%s cores", stats.CPU)
 	if stats.CPUPercent != "" && stats.CPUPercent != "N/A" && stats.CPUPercent != "-" {
-		cpuDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.CPUPercent)
+		cpuDisplay += fmt.Sprintf(" ([%s]%s[-])", styles.TagIdle, stats.CPUPercent)
 	} else if stats.CPUPercent == "-" {
-		cpuDisplay += " [dim](-)"
+		cpuDisplay += fmt.Sprintf(" [%s](-)", styles.TagDim)
 	}
 
 	// Build Mem display with total and percentage
 	memDisplay := stats.Mem
 	if stats.MemPercent != "" && stats.MemPercent != "N/A" && stats.MemPercent != "-" {
-		memDisplay += fmt.Sprintf(" ([blue]%s[-])", stats.MemPercent)
+		memDisplay += fmt.Sprintf(" ([%s]%s[-])", styles.TagIdle, stats.MemPercent)
 	} else if stats.MemPercent == "-" {
-		memDisplay += " [dim](-)"
+		memDisplay += fmt.Sprintf(" [%s](-)", styles.TagDim)
 	}
 
-	versionStr := fmt.Sprintf("[orange]D4s Rev: [white]v%s", stats.D4SVersion)
+	versionStr := fmt.Sprintf("[%s]D4s Rev: [%s]v%s", styles.TagAccent, styles.TagFg, stats.D4SVersion)
 	if stats.LatestVersion != "" {
 		currentV := stats.D4SVersion
 		if len(currentV) > 0 && currentV[0] != 'v' {
 			currentV = "v" + currentV
 		}
 		if stats.LatestVersion != currentV {
-			versionStr += fmt.Sprintf(" ⚡️[blue]%s[-]", stats.LatestVersion)
+			versionStr += fmt.Sprintf(" ⚡️[%s]%s[-]", styles.TagIdle, stats.LatestVersion)
 		}
 	}
 
 	lines := []string{
-		fmt.Sprintf("[orange]Host:    [white]%s", stats.Hostname),
-		fmt.Sprintf("[orange]User:    [white]%s", stats.User),
+		fmt.Sprintf("[%s]Host:    [%s]%s", styles.TagAccent, styles.TagFg, stats.Hostname),
+		fmt.Sprintf("[%s]User:    [%s]%s", styles.TagAccent, styles.TagFg, stats.User),
 		versionStr,
-		fmt.Sprintf("[orange]Context: [white]%s [dim](%s)", stats.Context, stats.Version),
-		fmt.Sprintf("[orange]CPU:     [white]%s", cpuDisplay),
-		fmt.Sprintf("[orange]Mem:     [white]%s", memDisplay),
+		fmt.Sprintf("[%s]Context: [%s]%s [%s](%s)", styles.TagAccent, styles.TagFg, stats.Context, styles.TagDim, stats.Version),
+		fmt.Sprintf("[%s]CPU:     [%s]%s", styles.TagAccent, styles.TagFg, cpuDisplay),
+		fmt.Sprintf("[%s]Mem:     [%s]%s", styles.TagAccent, styles.TagFg, memDisplay),
 	}
 
 	statsWidth := 0
@@ -124,23 +127,25 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 	}
 	statsWidth += 4 // Padding
 
-	// 2. Logo View
+	// 2. Logo View (skip if logoless)
 	logoWidth := 0
-	for i, line := range common.GetLogo() {
-		if i >= h.LogoView.GetRowCount() {
-			h.LogoView.InsertRow(i)
-		}
-		cell := tview.NewTableCell(line).
-			SetAlign(tview.AlignLeft).
-			SetBackgroundColor(styles.ColorBg)
-		h.LogoView.SetCell(i, 0, cell)
+	if !h.Logoless {
+		for i, line := range common.GetLogo() {
+			if i >= h.LogoView.GetRowCount() {
+				h.LogoView.InsertRow(i)
+			}
+			cell := tview.NewTableCell(line).
+				SetAlign(tview.AlignLeft).
+				SetBackgroundColor(styles.ColorBg)
+			h.LogoView.SetCell(i, 0, cell)
 
-		w := tview.TaggedStringWidth(line)
-		if w > logoWidth {
-			logoWidth = w
+			w := tview.TaggedStringWidth(line)
+			if w > logoWidth {
+				logoWidth = w
+			}
 		}
+		logoWidth += 2 // Padding
 	}
-	logoWidth += 2 // Padding
 
 	// 3. Shortcuts View
 	// Max 6 per column (matches header height)
@@ -257,6 +262,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 
 			// Label column
 			labelCell := tview.NewTableCell(labelText).
+				SetTextColor(styles.ColorDim).
 				SetAlign(tview.AlignLeft).
 				SetBackgroundColor(styles.ColorBg)
 			h.ShortcutsView.SetCell(row, colIndex+1, labelCell)
@@ -266,5 +272,7 @@ func (h *HeaderComponent) Update(stats dao.HostStats, shortcuts []string) {
 
 	// 4. Resize Flex Items
 	h.View.ResizeItem(h.StatsView, statsWidth, 0)
-	h.View.ResizeItem(h.LogoView, logoWidth, 0)
+	if !h.Logoless {
+		h.View.ResizeItem(h.LogoView, logoWidth, 0)
+	}
 }

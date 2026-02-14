@@ -61,17 +61,17 @@ func (a *App) RefreshCurrentView() {
 				
 				status += " "
 				for i, s := range breadcrumbs {
-					color := "#00ffff" // cyan
+					color := styles.TagCyan
 					if i == len(breadcrumbs)-1 {
-						color = "orange"
+						color = styles.TagAccent
 					}
 					firstChar := ""
 					if i > 0 {
 						firstChar = " "
 					}
-					status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
+					status += fmt.Sprintf("%s[%s:%s] <%s> ", firstChar, styles.TagBg, color, strings.ToLower(s))
 					if i < len(breadcrumbs)-1 {
-						status += "[black:black]"
+						status += fmt.Sprintf("[%s:%s]", styles.TagBg, styles.TagBg)
 					}
 				}
 				status += "[-:-:-]"
@@ -81,23 +81,23 @@ func (a *App) RefreshCurrentView() {
 				
 				status += " "
 				for i, s := range scopes {
-					color := "#00ffff" // cyan
+					color := styles.TagCyan
 					if i == len(scopes)-1 {
-						color = "orange"
+						color = styles.TagAccent
 					}
 					firstChar := ""
 					if i > 0 {
 						firstChar = " "
 					}
-					status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
+					status += fmt.Sprintf("%s[%s:%s] <%s> ", firstChar, styles.TagBg, color, strings.ToLower(s))
 					if i < len(scopes)-1 {
-						status += "[black:black]"
+						status += fmt.Sprintf("[%s:%s]", styles.TagBg, styles.TagBg)
 					}
 				}
 				status += "[-:-:-]"
 			}
 
-			if !a.IsFlashLocked() {
+			if !a.IsFlashLocked() && !a.Cfg.D4S.UI.Crumbsless {
 				a.Flash.SetText(status)
 			}
 		}
@@ -154,7 +154,7 @@ func (a *App) RefreshCurrentView() {
 			v.CurrentScope = a.GetActiveScope()
 
 			if err != nil {
-				a.Flash.SetText(fmt.Sprintf("[red]Error: %v", err))
+				a.Flash.SetText(fmt.Sprintf("[%s]Error: %v", styles.TagError, err))
 			} else {
 				// Show actual title
 				title := a.formatViewTitle(page, fmt.Sprintf("%d", len(v.Data)), filter)
@@ -181,31 +181,30 @@ func (a *App) RefreshCurrentView() {
 
 					status += " "
 					for i, s := range breadcrumbs {
-						color := "#00ffff" // cyan
+						color := styles.TagCyan
 						if i == len(breadcrumbs)-1 {
-							color = "orange"
+							color = styles.TagAccent
 						}
 						firstChar := ""
 						if i > 0 {
 							firstChar = " "
 						}
-						// l'espace entre les éléments doit toujours être noir sur noir
-						status += fmt.Sprintf("%s[black:%s] <%s> ", firstChar, color, strings.ToLower(s))
+						status += fmt.Sprintf("%s[%s:%s] <%s> ", firstChar, styles.TagBg, color, strings.ToLower(s))
 						if i < len(breadcrumbs)-1 {
-							status += "[black:black]" // black fg, black bg for space
+							status += fmt.Sprintf("[%s:%s]", styles.TagBg, styles.TagBg)
 						}
 					}
 					status += "[-:-:-]"
 				} else {
-					status = fmt.Sprintf(" [black:orange] <%s> [-:-]", strings.ToLower(page))
+					status = fmt.Sprintf(" [%s:%s] <%s> [-:-]", styles.TagBg, styles.TagAccent, strings.ToLower(page))
 				}
 
 				if filter != "" {
-					status += fmt.Sprintf(` [black:#bd93f9] <filter: %s> [-:-]`, filter)
+					status += fmt.Sprintf(` [%s:%s] <filter: %s> [-:-]`, styles.TagBg, styles.TagFilter, filter)
 				}
 				
-				// Only update flash if not locked by temporary message
-				if !a.IsFlashLocked() {
+				// Only update flash if not locked by temporary message and crumbs are enabled
+				if !a.IsFlashLocked() && !a.Cfg.D4S.UI.Crumbsless {
 					a.Flash.SetText(status)
 				}
 			}
@@ -217,7 +216,7 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 	viewName = strings.ToLower(viewName)
 	
 	// Default simple title
-	title := fmt.Sprintf(" [#00ffff::b]%s[#00ffff][[white]%s[#00ffff]] ", viewName, countStr)
+	title := fmt.Sprintf(" [%s::b]%s[%s][[%s]%s[%s]] ", styles.TagCyan, viewName, styles.TagCyan, styles.TagFg, countStr, styles.TagCyan)
 	
 	// Dynamic recursive breadcrumb
 	scope := a.GetActiveScope()
@@ -227,11 +226,11 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 		// Walk up the stack
 		curr := scope
 		for curr != nil {
-			cleanLabel := strings.ReplaceAll(curr.Label, "@", "[white] @ [#ff00ff]")
+			cleanLabel := strings.ReplaceAll(curr.Label, "@", fmt.Sprintf("[%s] @ [%s]", styles.TagFg, styles.TagPink))
 			origin := strings.ToLower(curr.OriginView)
 			
 			// Format: "origin(label)"
-			part := fmt.Sprintf("[#00ffff::b]%s([-][#ff00ff]%s[#00ffff])", origin, cleanLabel)
+			part := fmt.Sprintf("[%s::b]%s([-][%s]%s[%s])", styles.TagCyan, origin, styles.TagPink, cleanLabel, styles.TagCyan)
 			// Prepend to list (since we walk backwards)
 			parts = append([]string{part}, parts...)
 			
@@ -239,13 +238,13 @@ func (a *App) formatViewTitle(viewName string, countStr string, filter string) s
 		}
 		
 		// Append current view name
-		parts = append(parts, fmt.Sprintf("[#00ffff]%s[#00ffff][[white]%s[#00ffff]]", viewName, countStr))
+		parts = append(parts, fmt.Sprintf("[%s]%s[%s][[%s]%s[%s]]", styles.TagCyan, viewName, styles.TagCyan, styles.TagFg, countStr, styles.TagCyan))
 		
 		title = " " + strings.Join(parts, " > ") + " "
 	}
 	
 	if filter != "" {
-		title += fmt.Sprintf(" [#00ffff][[white]Filter: [::b]%s[::-][#00ffff]] ", filter)
+		title += fmt.Sprintf(" [%s][[%s]Filter: [::b]%s[::-][%s]] ", styles.TagCyan, styles.TagFg, filter, styles.TagCyan)
 	}
 	return title
 }
@@ -303,7 +302,7 @@ func (a *App) InspectCurrentSelection() {
 
 	content, err := a.Docker.Inspect(resourceType, id)
 	if err != nil {
-		a.Flash.SetText(fmt.Sprintf("[red]Inspect error: %v", err))
+		a.Flash.SetText(fmt.Sprintf("[%s]Inspect error: %v", styles.TagError, err))
 		return
 	}
 

@@ -153,6 +153,59 @@ scoop install d4s
 ```bash
 d4s
 d4s version
+d4s --context my-remote-ctx
+```
+
+## Configuration
+
+D4S uses a YAML configuration file located at `$XDG_CONFIG_HOME/d4s/config.yaml` (defaults to `~/.config/d4s/config.yaml`).
+
+All settings are optional and have sensible defaults. Below is a fully documented example:
+
+```yaml
+d4s:
+  # Refresh interval in seconds. Minimum 2.0 — values below are capped. Default: 2.0
+  refreshRate: 2
+  # Docker API server request timeout. Default: 120s
+  apiServerTimeout: 15s
+  # Disable all modification commands (delete, kill, restart, etc.). Default: false
+  readOnly: false
+  # Default view on startup (containers, images, volumes, networks, services, nodes, compose, secrets). Default: "" (containers)
+  defaultView: ""
+  # When true, Ctrl+C won't exit — use :quit instead. Default: false
+  noExitOnCtrlC: false
+  # Skip checking GitHub for new releases on startup. Default: false
+  skipLatestRevCheck: false
+
+  # UI settings
+  ui:
+    # Enable mouse support. Default: false
+    enableMouse: false
+    # Hide the entire header bar (stats + shortcuts + logo). Default: false
+    headless: false
+    # Hide the D4S ASCII logo from the header. Default: false
+    logoless: false
+    # Hide breadcrumb trail in the status bar. Default: false
+    crumbsless: false
+    # Invert all theme colors (dark↔light), preserving hue. Default: false
+    invert: false
+
+  # Log viewer settings
+  logger:
+    # Number of tail lines to fetch initially. Default: 100
+    tail: 200
+    # How far back to go in the log timeline (seconds). -1 = tail mode. Default: -1
+    sinceSeconds: 300
+    # Enable line wrapping in log viewer. Default: false
+    textWrap: false
+    # Disable auto-scroll when new log lines arrive. Default: false
+    disableAutoscroll: false
+    # Show timestamps on each log line. Default: false
+    showTime: false
+
+  # Shell pod used for volume browsing and secret decoding
+  shellPod:
+    image: ghcr.io/jr-k/nget:latest
 ```
 
 ## Contributing
@@ -160,9 +213,6 @@ d4s version
 There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING.md) to see how you can help.
 
 ## Discussion / Need help ?
-
-### Join our Discord
-[<img src="./docs/img/social/discord.png" width="64">](https://discord.gg/tS2NCEJTUN)
 
 ### Open an Issue
 [<img src="./docs/img/social/github.png" width="64">](https://github.com/jr-k/d4s/issues/new/choose)

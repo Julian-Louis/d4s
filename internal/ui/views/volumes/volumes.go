@@ -235,7 +235,8 @@ func Shell(app common.AppController, id string) {
 		// Create a temporary container that mounts the volume
 		// We use sh as the shell
 		containerName := fmt.Sprintf("d4s-vol-shell-%d", time.Now().UnixNano())
-		cmd := exec.Command("docker", "run", "--pull", "always", "--rm", "--name", containerName, "-it", "-v", id+":/data", "-p", "33000-33100:33000-33100", "-w", "/data", "ghcr.io/jr-k/nget:latest", "sh")
+		shellImage := app.GetConfig().D4S.ShellPod.Image
+		cmd := exec.Command("docker", "run", "--pull", "always", "--rm", "--name", containerName, "-it", "-v", id+":/data", "-p", "33000-33100:33000-33100", "-w", "/data", shellImage, "sh")
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

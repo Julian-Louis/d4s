@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/jr-k/d4s/internal/config"
 	"github.com/jr-k/d4s/internal/dao"
+	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
 
@@ -29,6 +31,7 @@ type AppController interface {
 	GetTviewApp() *tview.Application
 	GetScreen() tcell.Screen
 	GetDocker() *dao.DockerClient
+	GetConfig() *config.Config
 
 	// Actions
 	PerformAction(action func(id string) error, actionName string, color tcell.Color)
@@ -36,6 +39,7 @@ type AppController interface {
 	InspectCurrentSelection()
 
 	// State
+	IsReadOnly() bool
 	GetActiveScope() *Scope
 	SetActiveScope(scope *Scope)
 	SetFilter(filter string)
@@ -74,17 +78,14 @@ type AppController interface {
 }
 
 func FormatSCHeader(key, action string) string {
-	// Format: <Key> [spaces] Label
-	// Using spaces instead of tab for predictable spacing
-	return fmt.Sprintf("[#2090ff::b]<%s>[-]   [gray]%s[-]", key, action)
+	return fmt.Sprintf("[%s::b]<%s>[-]   [%s]%s[-]", styles.TagSCKey, key, styles.TagDim, action)
 }
 
 func FormatSCHeaderGlobal(key, action string) string {
-	// Global shortcuts use orange/pinkish color for alias
-	return fmt.Sprintf("[orange::b]<%s>[-]   [gray]%s[-]", key, action)
+	return fmt.Sprintf("[%s::b]<%s>[-]   [%s]%s[-]", styles.TagAccent, key, styles.TagDim, action)
 }
 
 // Helper for footer shortcuts (legacy/logs)
 func FormatSC(key, action string) string {
-	return fmt.Sprintf("[#2090ff::b]<%s>[#f8f8f2:-] [gray]%s[-] ", key, action)
+	return fmt.Sprintf("[%s::b]<%s>[%s:-] [%s]%s[-] ", styles.TagSCKey, key, styles.TagFg, styles.TagDim, action)
 }

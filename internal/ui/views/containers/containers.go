@@ -191,7 +191,7 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 				cells := item.GetCells()
 				if len(cells) > 1 {
 					// Inside Confirmation Modal
-					label = fmt.Sprintf("%s ([#00ffff]%s[yellow])", label, cells[1])
+					label = fmt.Sprintf("%s ([%s]%s[yellow])", label, styles.TagCyan, cells[1])
 				}
 			}
 		}
@@ -301,7 +301,7 @@ func Logs(app common.AppController, v *view.ResourceView) {
 	if err != nil { return }
 	subject := resolveContainerSubject(v, id)
 
-	app.OpenInspector(inspect.NewLogInspector(id, subject, "container"))
+	app.OpenInspector(inspect.NewLogInspectorWithConfig(id, subject, "container", app.GetConfig().D4S.Logger))
 }
 
 func Describe(app common.AppController, v *view.ResourceView) {

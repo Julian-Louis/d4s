@@ -392,13 +392,13 @@ func (i *StatsInspector) drawDashboard(cpu float64, mem uint64, limit uint64, rx
 
 	// 3. Network
 	{
-		label := fmt.Sprintf("[green]●[-] Rx: %s/s  [#00ffff]●[-] Tx: %s/s", daoCommon.FormatBytes(int64(rx)), daoCommon.FormatBytes(int64(tx)))
+		label := fmt.Sprintf("[%s]●[-] Rx: %s/s  [%s]●[-] Tx: %s/s", styles.TagInfo, daoCommon.FormatBytes(int64(rx)), styles.TagCyan, daoCommon.FormatBytes(int64(tx)))
 		i.renderGraphMany(i.GraphNet, [][]float64{rxHist, txHist}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Cyan}, true)
 	}
 
 	// 4. Disk
 	{
-		label := fmt.Sprintf("[green]●[-] Read: %s/s  [red]●[-] Write: %s/s", daoCommon.FormatBytes(int64(dread)), daoCommon.FormatBytes(int64(dwrite)))
+		label := fmt.Sprintf("[%s]●[-] Read: %s/s  [%s]●[-] Write: %s/s", styles.TagInfo, daoCommon.FormatBytes(int64(dread)), styles.TagError, daoCommon.FormatBytes(int64(dwrite)))
 		i.renderGraphMany(i.GraphDisk, [][]float64{readHist, writeHist}, label, []asciigraph.AnsiColor{asciigraph.Green, asciigraph.Red}, true)
 	}
 }

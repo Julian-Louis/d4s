@@ -82,7 +82,7 @@ func ShowEnvEditor(app common.AppController, title string, items []EnvItem, onCo
 
 	separator := tview.NewTextView().
 		SetDynamicColors(true).
-		SetText("[gray]" + strings.Repeat("─", 66) + "[-]").
+		SetText("[" + styles.TagDim + "]" + strings.Repeat("─", 66) + "[-]").
 		SetTextAlign(tview.AlignCenter)
 	separator.SetBackgroundColor(styles.ColorBlack)
 
@@ -94,7 +94,7 @@ func ShowEnvEditor(app common.AppController, title string, items []EnvItem, onCo
 
 	updateList := func() {
 		if len(items) == 0 {
-			list.SetText("[gray]  No environment variables[-]")
+			list.SetText(fmt.Sprintf("[%s]  No environment variables[-]", styles.TagDim))
 			return
 		}
 		var content string
@@ -104,9 +104,9 @@ func ShowEnvEditor(app common.AppController, title string, items []EnvItem, onCo
 				checkbox = "[" + "✔" + "]"
 			}
 
-			color := "[white]"
+			color := fmt.Sprintf("[%s]", styles.TagFg)
 			if i == currentIndex {
-				color = "[orange]"
+				color = fmt.Sprintf("[%s]", styles.TagAccent)
 				checkbox = "> " + checkbox
 			} else {
 				checkbox = "  " + checkbox
@@ -126,7 +126,7 @@ func ShowEnvEditor(app common.AppController, title string, items []EnvItem, onCo
 	// Help text
 	helpText := tview.NewTextView().
 		SetDynamicColors(true).
-		SetText("[gray]tab switch focus • ↑/↓ navigate • space toggle • enter/esc confirm").
+		SetText(fmt.Sprintf("[%s]tab switch focus • ↑/↓ navigate • space toggle • enter/esc confirm", styles.TagDim)).
 		SetTextAlign(tview.AlignCenter)
 	helpText.SetBackgroundColor(styles.ColorBlack)
 

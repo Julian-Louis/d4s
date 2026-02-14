@@ -44,7 +44,7 @@ func (a *App) ExecuteCmd(cmd string) {
 	case "h", "help", "?":
 		a.Pages.AddPage("help", a.Help, true, true)
 	default:
-		a.Flash.SetText(fmt.Sprintf("[red]Unknown command: %s", cmd))
+		a.Flash.SetText(fmt.Sprintf("[%s]Unknown command: %s", styles.TagError, cmd))
 	}
 }
 
@@ -120,6 +120,6 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 
 		a.TviewApp.SetFocus(v.Table)
 	} else {
-		a.Flash.SetText(fmt.Sprintf("[red]Unknown view: %s", viewName))
+		a.Flash.SetText(fmt.Sprintf("[%s]Unknown view: %s", styles.TagError, viewName))
 	}
 }

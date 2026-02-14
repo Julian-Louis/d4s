@@ -22,7 +22,7 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 	text := tview.NewTextView().
 		SetDynamicColors(true).
 		SetTextAlign(tview.AlignCenter).
-		SetText(fmt.Sprintf("\n[red::b] DANGER ZONE \n\n[white::-]You are about to %s:\n[yellow] %s [white]\n\nType [red::b]y[white::-] or [red::b]yes[white::-] to confirm", actionName, item))
+		SetText(fmt.Sprintf("\n[%s::b] DANGER ZONE \n\n[%s::-]You are about to %s:\n[yellow] %s [%s]\n\nType [%s::b]y[%s::-] or [%s::b]yes[%s::-] to confirm", styles.TagError, styles.TagFg, actionName, item, styles.TagFg, styles.TagError, styles.TagFg, styles.TagError, styles.TagFg))
 	text.SetBackgroundColor(styles.ColorBlack)
 
 	// Force Checkbox
@@ -45,9 +45,9 @@ func ShowConfirmation(app common.AppController, actionName, item string, onConfi
 			text = "Yes"
 		}
 
-		color := "[white]"
+		color := fmt.Sprintf("[%s]", styles.TagFg)
 		if focused {
-			color = "[orange]" // Orange focus
+			color = fmt.Sprintf("[%s]", styles.TagAccent)
 			text = fmt.Sprintf("> %s", text)
 		}
 

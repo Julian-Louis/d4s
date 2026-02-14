@@ -45,8 +45,8 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 		// Format label with shortcut
 		// (a) Label
 		// Use explicit color tags for shortcut
-		label := fmt.Sprintf("[white] %s", item.Label)
-		description := fmt.Sprintf("[#44475a](%s)", item.Description)
+		label := fmt.Sprintf("[%s] %s", styles.TagFg, item.Label)
+		description := fmt.Sprintf("[%s](%s)", styles.TagDim, item.Description)
 		
 		list.AddItem(label, description, item.Shortcut, func() {
 			closeModal()

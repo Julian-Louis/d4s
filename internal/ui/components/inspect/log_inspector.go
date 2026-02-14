@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gdamore/tcell/v2"
+	"github.com/jr-k/d4s/internal/config"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
@@ -48,10 +49,25 @@ func NewLogInspector(id, subject, resourceType string) *LogInspector {
 		ResourceType: resourceType,
 		AutoScroll:   true,
 		Timestamps:   false,
-		Wrap:         false, // Default to false
+		Wrap:         false,
 		since:        "",
 		tail:         "200",
 		sinceLabel:   "Tail",
+	}
+}
+
+// NewLogInspectorWithConfig creates a LogInspector with settings from the config.
+func NewLogInspectorWithConfig(id, subject, resourceType string, logCfg config.LoggerConfig) *LogInspector {
+	return &LogInspector{
+		ResourceID:   id,
+		Subject:      subject,
+		ResourceType: resourceType,
+		AutoScroll:   !logCfg.DisableAutoscroll,
+		Timestamps:   logCfg.ShowTime,
+		Wrap:         logCfg.TextWrap,
+		since:        logCfg.GetLogSince(),
+		tail:         logCfg.GetLogTail(),
+		sinceLabel:   logCfg.GetLogSinceLabel(),
 	}
 }
 
@@ -67,24 +83,24 @@ func (i *LogInspector) GetTitle() string {
 	// Standard Title on first line
 	title := FormatInspectorTitle("Logs", i.Subject, "", i.filter, 0, 0)
 	// Remove empty mode brackets from standard title if needed
-	title = strings.ReplaceAll(title, " [[white][#00ffff]]", "")
+	title = strings.ReplaceAll(title, fmt.Sprintf(" [[%s][%s]]", styles.TagFg, styles.TagCyan), "")
 	return title
 }
 
 func (i *LogInspector) GetStatus() string {
 	fmtStatus := func(label string, active bool) string {
-		c := "[gray]Off[-]"
+		c := fmt.Sprintf("[%s]Off[-]", styles.TagDim)
 		if active {
-			c = "[green]On[-]"
+			c = fmt.Sprintf("[%s]On[-]", styles.TagInfo)
 		}
-		return fmt.Sprintf("[#5f87ff]%s:[-]%s", label, c)
+		return fmt.Sprintf("[%s]%s:[-]%s", styles.TagSCKey, label, c)
 	}
 
 	parts := []string{}
 	parts = append(parts, fmtStatus("[::b]Autoscroll[::-]", i.AutoScroll))
 	parts = append(parts, fmtStatus("[::b]Timestamps[::-]", i.Timestamps))
 	parts = append(parts, fmtStatus("[::b]Wrap[::-]", i.Wrap))
-	parts = append(parts, fmt.Sprintf("[#5f87ff::b]Since:[-::-][white]%s[-]", i.sinceLabel))
+	parts = append(parts, fmt.Sprintf("[%s::b]Since:[-::-][%s]%s[-]", styles.TagSCKey, styles.TagFg, i.sinceLabel))
 	
 	return strings.Join(parts, "     ")
 }
@@ -92,7 +108,7 @@ func (i *LogInspector) GetStatus() string {
 func (i *LogInspector) GetShortcuts() []string {
 	// Helper for alt shortcuts (time/range control)
 	altSC := func(key, action string) string {
-		return fmt.Sprintf("[#ff00ff::b]<%s>[-]   [gray]%s[-]", key, action)
+		return fmt.Sprintf("[%s::b]<%s>[-]   [%s]%s[-]", styles.TagPink, key, styles.TagDim, action)
 	}
 
 	altShortcuts := []string{
@@ -270,7 +286,7 @@ func (i *LogInspector) startStreaming() {
 
 	if i.TextView != nil {
 		i.TextView.Clear()
-		i.TextView.SetText(" [orange]Loading logs...\n")
+		i.TextView.SetText(fmt.Sprintf(" [%s]Loading logs...\n", styles.TagAccent))
 	}
 
 	// Channels for buffering
@@ -309,7 +325,7 @@ func (i *LogInspector) startStreaming() {
 		if err != nil {
 			i.App.GetTviewApp().QueueUpdateDraw(func() {
 				if i.TextView != nil {
-					i.TextView.SetText(fmt.Sprintf("[red]Error fetching logs: %v", err))
+					i.TextView.SetText(fmt.Sprintf("[%s]Error fetching logs: %v", styles.TagError, err))
 				}
 			})
 			return
@@ -333,7 +349,7 @@ func (i *LogInspector) startStreaming() {
 		}
 		
 		if err := scanner.Err(); err != nil && err != context.Canceled && err != io.EOF {
-			logCh <- fmt.Sprintf("[red]Stream Error: %v", err)
+			logCh <- fmt.Sprintf("[%s]Stream Error: %v", styles.TagError, err)
 		}
 	}()
 
@@ -463,7 +479,7 @@ func (i *LogInspector) startStreaming() {
 							
 							tParts := strings.SplitN(trimmed, " ", 2)
 							if len(tParts) == 2 {
-								body = fmt.Sprintf("%s[gray]%s[-] %s", indent, tParts[0], tParts[1])
+								body = fmt.Sprintf("%s[%s]%s[-] %s", indent, styles.TagDim, tParts[0], tParts[1])
 							}
 						}
 						
@@ -471,7 +487,7 @@ func (i *LogInspector) startStreaming() {
 						line = fmt.Sprintf("[%s]%s[-]|%s", col, prefix, body)
 					} else {
 						// Fallback for lines without pipe (e.g. "Attaching to...")
-						line = " [#89cefa]" + line
+						line = " [" + styles.TagIdle + "]" + line
 					}
 				} else {
 					// Standard Container/Service Logs
@@ -482,11 +498,11 @@ func (i *LogInspector) startStreaming() {
 						if len(parts) == 2 {
 							// Check if first part looks like a timestamp? 
 							// Just blind replace for perf
-							line = fmt.Sprintf("[gray]%s[-] %s", parts[0], parts[1])
+							line = fmt.Sprintf("[%s]%s[-] %s", styles.TagDim, parts[0], parts[1])
 						}
 					}
 
-					line = " [#89cefa]" + line + " "
+					line = " [" + styles.TagIdle + "]" + line + " "
 				}
 				
 				buffer = append(buffer, line)

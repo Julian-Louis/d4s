@@ -52,9 +52,9 @@ func ShowMultiPicker(app common.AppController, title string, items []MultiPicker
 				checkbox = "[" + "✔" + "]"
 			}
 
-			color := "[white]"
+			color := fmt.Sprintf("[%s]", styles.TagFg)
 			if i == currentIndex {
-				color = "[orange]"
+				color = fmt.Sprintf("[%s]", styles.TagAccent)
 				checkbox = "> " + checkbox
 			} else {
 				checkbox = "  " + checkbox
@@ -70,7 +70,7 @@ func ShowMultiPicker(app common.AppController, title string, items []MultiPicker
 	// Help text
 	helpText := tview.NewTextView().
 		SetDynamicColors(true).
-		SetText("[gray]↑/↓ navigate • space toggle • enter confirm • esc cancel").
+		SetText(fmt.Sprintf("[%s]↑/↓ navigate • space toggle • enter confirm • esc cancel", styles.TagDim)).
 		SetTextAlign(tview.AlignCenter)
 	helpText.SetBackgroundColor(styles.ColorBlack)
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jr-k/d4s/internal/buildinfo"
+	"github.com/jr-k/d4s/internal/config"
 	"github.com/jr-k/d4s/internal/ui"
 	"github.com/jr-k/d4s/internal/ui/common"
 )
@@ -58,7 +59,6 @@ func main() {
 	}
 
 	if *showVersion || containsVersionArg {
-		// Print logo & build info à la k9s style
 		fmt.Println()
 
 		logoStr := "\n" + strings.Join(common.GetLogo(), "\n") + "\n"
@@ -80,7 +80,9 @@ func main() {
 		return
 	}
 
-	app, err := ui.NewApp(contextName)
+	cfg := config.Load()
+
+	app, err := ui.NewApp(contextName, cfg)
 	if err != nil {
 		fmt.Printf("Startup Error: %v\n", err)
 		os.Exit(1)

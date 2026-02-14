@@ -1,6 +1,8 @@
 package dialogs
 
 import (
+	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
@@ -12,26 +14,29 @@ func NewHelpView(app common.AppController) tview.Primitive {
 	helpTable.SetBorders(false)
 	helpTable.SetBackgroundColor(styles.ColorBlack)
 
+	k := styles.TagSCKey // shortcut key color
+	a := styles.TagAccent // accent/section header color
+
 	// Format: Col1 | Col2
 	rows := [][]string{
-		{"[orange::b]GLOBAL", ""},
-		{"[#5f87ff]:[-]         Command", "[#5f87ff]?[-]         Help"},
-		{"[#5f87ff]/[-]         Filter", "[#5f87ff]esc[-]       Back/Clear"},
-		{"[#5f87ff]c[-]         Copy", "[#5f87ff]u[-]         Unselect All"},
-		{"[#5f87ff]:a[-]        Aliases", ""},
+		{fmt.Sprintf("[%s::b]GLOBAL", a), ""},
+		{fmt.Sprintf("[%s]:[-]         Command", k), fmt.Sprintf("[%s]?[-]         Help", k)},
+		{fmt.Sprintf("[%s]/[-]         Filter", k), fmt.Sprintf("[%s]esc[-]       Back/Clear", k)},
+		{fmt.Sprintf("[%s]c[-]         Copy", k), fmt.Sprintf("[%s]u[-]         Unselect All", k)},
+		{fmt.Sprintf("[%s]:a[-]        Aliases", k), ""},
 		{"", ""},
-		{"[orange::b]DOCKER", ""},
-		{"[#5f87ff]:c[-]        Containers", "[#5f87ff]:i[-]        Images"},
-		{"[#5f87ff]:v[-]        Volumes", "[#5f87ff]:n[-]        Networks"},
-		{"[#5f87ff]:p[-]        Compose", ""},
+		{fmt.Sprintf("[%s::b]DOCKER", a), ""},
+		{fmt.Sprintf("[%s]:c[-]        Containers", k), fmt.Sprintf("[%s]:i[-]        Images", k)},
+		{fmt.Sprintf("[%s]:v[-]        Volumes", k), fmt.Sprintf("[%s]:n[-]        Networks", k)},
+		{fmt.Sprintf("[%s]:p[-]        Compose", k), ""},
 		{"", ""},
-		{"[orange::b]SWARM", ""},
-		{"[#5f87ff]:s[-]        Services", "[#5f87ff]:no[-]       Nodes"},
-		{"[#5f87ff]:x[-]        Secrets", ""},
+		{fmt.Sprintf("[%s::b]SWARM", a), ""},
+		{fmt.Sprintf("[%s]:s[-]        Services", k), fmt.Sprintf("[%s]:no[-]       Nodes", k)},
+		{fmt.Sprintf("[%s]:x[-]        Secrets", k), ""},
 		{"", ""},
-		{"[orange::b]NAVIGATION", ""},
-		{"[#5f87ff]←/→[-], [#5f87ff]j/k[-]   Navigate", "[#5f87ff]enter[-]       Drill Down"},
-		{"[#5f87ff]shift ←/→[-] Sort Column", "[#5f87ff]shift ↑/↓[-] Toggle Order"},
+		{fmt.Sprintf("[%s::b]NAVIGATION", a), ""},
+		{fmt.Sprintf("[%s]←/→[-], [%s]j/k[-]   Navigate", k, k), fmt.Sprintf("[%s]enter[-]       Drill Down", k)},
+		{fmt.Sprintf("[%s]shift ←/→[-] Sort Column", k), fmt.Sprintf("[%s]shift ↑/↓[-] Toggle Order", k)},
 	}
 
 	for i, row := range rows {

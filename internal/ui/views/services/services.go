@@ -245,7 +245,7 @@ func Logs(app common.AppController, v *view.ResourceView) {
 	if err != nil { return }
 	
 	// Open Logs view
-	app.OpenInspector(inspect.NewLogInspector(id, id, "service"))
+	app.OpenInspector(inspect.NewLogInspectorWithConfig(id, id, "service", app.GetConfig().D4S.Logger))
 }
 
 func Ps(app common.AppController, v *view.ResourceView) {

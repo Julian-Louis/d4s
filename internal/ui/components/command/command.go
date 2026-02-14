@@ -93,7 +93,7 @@ func NewCommandComponent(app common.AppController) *CommandComponent {
 		SetLabel("[#ffb86c::b]VIEW> [-:-:-]")
 	
 	c.SetBorder(true).
-		SetBorderColor(styles.ColorAccent).
+		SetBorderColor(styles.ColorAccentLight).
 		SetBackgroundColor(styles.ColorBg)
 	
 	c.SetApplication(app.GetTviewApp())

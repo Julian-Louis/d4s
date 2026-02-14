@@ -95,7 +95,7 @@ func Logs(app common.AppController, v *view.ResourceView) {
 		res := v.Data[row-1]
 		projName := res.GetID()
 
-		app.OpenInspector(inspect.NewLogInspector(projName, projName, "compose"))
+		app.OpenInspector(inspect.NewLogInspectorWithConfig(projName, projName, "compose", app.GetConfig().D4S.Logger))
 	}
 }
 

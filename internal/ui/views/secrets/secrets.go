@@ -159,7 +159,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 		}
 	}
 
-	inspector := inspect.NewTextInspector("Decode secret", name, " [orange]Loading value...\n", "text")
+	inspector := inspect.NewTextInspector("Decode secret", name, fmt.Sprintf(" [%s]Loading value...\n", styles.TagAccent), "text")
 	app.OpenInspector(inspector)
 
 	app.RunInBackground(func() {
@@ -170,7 +170,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 			"--secret", name,
 			"--restart-condition", "none",
 			"--detach",
-			"ghcr.io/jr-k/nget:latest",
+			app.GetConfig().D4S.ShellPod.Image,
 			"cat", fmt.Sprintf("/run/secrets/%s", name),
 		)
 

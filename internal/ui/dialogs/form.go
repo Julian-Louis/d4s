@@ -106,9 +106,9 @@ func ShowFormWithDescription(app common.AppController, title, description string
 				if *fw.boolValue {
 					text = "Yes"
 				}
-				color := "[white]"
+				color := fmt.Sprintf("[%s]", styles.TagFg)
 				if focused {
-					color = "[orange]"
+					color = fmt.Sprintf("[%s]", styles.TagAccent)
 					text = "> " + text
 				}
 				checkbox.SetText(fmt.Sprintf("%s%s", color, text))

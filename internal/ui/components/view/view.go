@@ -40,7 +40,7 @@ type ResourceView struct {
 	InspectFunc              func(app common.AppController, id string)
 	RemoveFunc               func(id string, force bool, app common.AppController) error
 	PruneFunc                func(app common.AppController) error
-	highlightMu              sync.Mutex
+	highlightMu              sync.RWMutex
 	transientHighlights      map[string]highlightEntry
 	pendingHighlightRequests []highlightRequest
 
@@ -73,7 +73,7 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 
 	// Initial Loading State
 	tv.SetBorder(true)
-	tv.SetTitle(fmt.Sprintf(" [#00ffff::b]%s[-::-] ~ [white]loading...[-] ", strings.ToLower(title)))
+	tv.SetTitle(fmt.Sprintf(" [%s::b]%s[-::-] ~ [%s]loading...[-] ", styles.TagCyan, strings.ToLower(title), styles.TagFg))
 	tv.SetTitleColor(styles.ColorTitle)
 	tv.SetBorderColor(styles.ColorTableBorder)
 	tv.SetBackgroundColor(styles.ColorBg)
@@ -103,12 +103,15 @@ func NewResourceView(app common.AppController, title string) *ResourceView {
 		IsLoading:           true,
 	}
 
-	// Handle Selection Change for custom highlighting (Optimized)
+	var lastCursorRow int
 	tv.SetSelectionChangedFunc(func(row, col int) {
-		// Update internal FocusCol when user clicks or moves via other means
 		if col >= 0 {
 			v.FocusCol = col
 		}
+		if row == lastCursorRow {
+			return
+		}
+		lastCursorRow = row
 		v.updateCursorStyle(row)
 	})
 
@@ -330,7 +333,7 @@ func (v *ResourceView) SetLoading(loading bool) {
 		v.RawData = nil
 		v.SelectedIDs = make(map[string]bool)
 		
-		v.Table.SetTitle(fmt.Sprintf(" [#00ffff::b]%s[-::-] ~ [white]loading...[-] ", strings.ToLower(v.Title)))
+		v.Table.SetTitle(fmt.Sprintf(" [%s::b]%s[-::-] ~ [%s]loading...[-] ", styles.TagCyan, strings.ToLower(v.Title), styles.TagFg))
 		
 		// Use Safe SetCell
 		func() {
@@ -648,7 +651,6 @@ func (v *ResourceView) SetFilter(filter string) {
 	v.Filter = filter
 }
 
-// updateCursorStyle updates the global selection style based on the current row
 func (v *ResourceView) updateCursorStyle(cursorRow int) {
 	dataIdx := cursorRow - 1
 	statusColor := styles.ColorFg
@@ -850,8 +852,8 @@ func (v *ResourceView) addTransientHighlight(id string, bg, fg tcell.Color, dura
 }
 
 func (v *ResourceView) getTransientHighlight(id string) (highlightEntry, bool) {
-	v.highlightMu.Lock()
-	defer v.highlightMu.Unlock()
+	v.highlightMu.RLock()
+	defer v.highlightMu.RUnlock()
 	entry, ok := v.transientHighlights[id]
 	return entry, ok
 }

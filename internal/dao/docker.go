@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/docker/cli/cli/config"
 	clicontext "github.com/docker/cli/cli/context"
@@ -55,11 +56,11 @@ type DockerClient struct {
 	Compose   *compose.Manager
 }
 
-func NewDockerClient(contextName string) (*DockerClient, error) {
+func NewDockerClient(contextName string, apiTimeout time.Duration) (*DockerClient, error) {
 	logger, cleanup := initLogger()
 	defer cleanup()
 
-	ctxName, opts, err := resolveClientOpts(contextName, logger)
+	ctxName, opts, err := resolveClientOpts(contextName, logger, apiTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func initLogger() (*log.Logger, func()) {
 	return log.New(f, "d4s-dao: ", log.LstdFlags), func() { f.Close() }
 }
 
-func resolveClientOpts(flagContext string, logger *log.Logger) (string, []client.Opt, error) {
+func resolveClientOpts(flagContext string, logger *log.Logger, apiTimeout time.Duration) (string, []client.Opt, error) {
 	opts := []client.Opt{
 		client.WithAPIVersionNegotiation(),
 	}
@@ -101,7 +102,7 @@ func resolveClientOpts(flagContext string, logger *log.Logger) (string, []client
 	// 1. Flag takes precedence
 	if flagContext != "" {
 		logger.Printf("Explicit context requested via flag: %s", flagContext)
-		opts, err := loadSpecificContext(flagContext, logger, opts)
+		opts, err := loadSpecificContext(flagContext, logger, opts, apiTimeout)
 		return flagContext, opts, err
 	}
 
@@ -133,11 +134,11 @@ func resolveClientOpts(flagContext string, logger *log.Logger) (string, []client
 	}
 
 	// 4. Load Specific Context
-	opts, err := loadSpecificContext(targetCtx, logger, opts)
+	opts, err := loadSpecificContext(targetCtx, logger, opts, apiTimeout)
 	return targetCtx, opts, err
 }
 
-func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client.Opt) ([]client.Opt, error) {
+func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client.Opt, apiTimeout time.Duration) ([]client.Opt, error) {
 	logger.Printf("Loading context: %s", targetCtx)
 	
 	// Create store with docker endpoint registered
@@ -170,7 +171,10 @@ func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client
 	opts := append(baseOpts, client.WithHost(ep.Host))
 
 	if ep.TLSData != nil {
-		httpClient, err := newTLSClient(ep.TLSData, ep.SkipTLSVerify)
+		// Only TLS connections get a custom HTTP client (they use TCP, not Unix sockets).
+		// Calling WithHTTPClient on a Unix socket context would destroy the
+		// socket transport that the Docker SDK configures internally.
+		httpClient, err := newTLSClient(ep.TLSData, ep.SkipTLSVerify, apiTimeout)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +184,7 @@ func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client
 	return opts, nil
 }
 
-func newTLSClient(tlsData *clicontext.TLSData, skipVerify bool) (*http.Client, error) {
+func newTLSClient(tlsData *clicontext.TLSData, skipVerify bool, timeout time.Duration) (*http.Client, error) {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: skipVerify,
 	}
@@ -202,7 +206,7 @@ func newTLSClient(tlsData *clicontext.TLSData, skipVerify bool) (*http.Client, e
 	transport := &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
-	return &http.Client{Transport: transport}, nil
+	return &http.Client{Transport: transport, Timeout: timeout}, nil
 }
 
 func (d *DockerClient) ListContainers() ([]common.Resource, error) {

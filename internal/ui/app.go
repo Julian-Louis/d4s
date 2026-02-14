@@ -3,12 +3,14 @@ package ui
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
 	"runtime/debug"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/jr-k/d4s/internal/config"
 	"github.com/jr-k/d4s/internal/dao"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/components/command"
@@ -34,6 +36,7 @@ type App struct {
 	TviewApp *tview.Application
 	Screen   tcell.Screen
 	Docker   *dao.DockerClient
+	Cfg      *config.Config
 
 	// Components
 	Layout  *tview.Flex
@@ -70,7 +73,7 @@ type App struct {
 // Ensure App implements AppController interface
 var _ common.AppController = (*App)(nil)
 
-func NewApp(contextName string) (*App, error) {
+func NewApp(contextName string, cfg *config.Config) (*App, error) {
 	// Configure global tview borders (Normal)
 	tview.Borders.TopLeft = '┌'
 	tview.Borders.TopRight = '┐'
@@ -92,7 +95,12 @@ func NewApp(contextName string) (*App, error) {
 	tview.Borders.HorizontalFocus = '─'
 	tview.Borders.VerticalFocus = '│'
 
-	docker, err := dao.NewDockerClient(contextName)
+	// Apply color inversion if configured
+	if cfg.D4S.UI.Invert {
+		styles.InvertColors()
+	}
+
+	docker, err := dao.NewDockerClient(contextName, cfg.D4S.GetAPIServerTimeout())
 	if err != nil {
 		return nil, fmt.Errorf("failed to init docker client: %w", err)
 	}
@@ -101,16 +109,20 @@ func NewApp(contextName string) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create screen: %w", err)
 	}
-	// We don't Init() here, tview does it on Run() if we set it?
-	// Actually tview.Application.Run() calls screen.Init() if not initialized.
 	
 	tviewApp := tview.NewApplication()
 	tviewApp.SetScreen(screen)
+
+	// Enable mouse support if configured
+	if cfg.D4S.UI.EnableMouse {
+		tviewApp.EnableMouse(true)
+	}
 
 	app := &App{
 		TviewApp: tviewApp,
 		Screen:   screen,
 		Docker:   docker,
+		Cfg:      cfg,
 		Views:    make(map[string]*view.ResourceView),
 		Pages:    tview.NewPages(),
 	}
@@ -130,11 +142,14 @@ func (a *App) Run() error {
 	// Start auto-refresh
 	a.StartAutoRefresh()
 	
-	// Check for updates
-	go a.checkLatestVersion()
+	// Check for updates (unless skipped by config)
+	if !a.Cfg.D4S.SkipLatestRevCheck {
+		go a.checkLatestVersion()
+	}
 
-	// Pre-pull nget image so volume shell and secret decode are fast on first use
-	go exec.Command("docker", "pull", "ghcr.io/jr-k/nget:latest").Run()
+	// Pre-pull shell pod image so volume shell and secret decode are fast on first use
+	shellImage := a.Cfg.D4S.ShellPod.Image
+	go exec.Command("docker", "pull", shellImage).Run()
 
 	return a.TviewApp.SetRoot(a.Layout, true).Run()
 }
@@ -158,7 +173,7 @@ func (a *App) StartAutoRefresh() {
 		// subsequent restarts of auto-refresh might want immediate effect or wait for next tick.
 		// Let's rely on tick.
 		
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(a.Cfg.D4S.GetRefreshInterval())
 		defer ticker.Stop()
 
 		// Immediate update on start
@@ -200,7 +215,7 @@ func (a *App) StopAutoRefresh() {
 
 func (a *App) initUI() {
 	// 1. Header
-	a.Header = header.NewHeaderComponent()
+	a.Header = header.NewHeaderComponent(a.Cfg.D4S.UI.Logoless)
 
 	// 2. Main Content
 	// Containers
@@ -332,18 +347,26 @@ func (a *App) initUI() {
 	a.Layout = tview.NewFlex().SetDirection(tview.FlexRow)
 	a.Layout.SetBackgroundColor(styles.ColorBg)
 
-	a.Layout.AddItem(a.Header.View, 7, 1, false).
-		AddItem(a.CmdLine.View, 0, 0, false). // Hidden by default (size 0, proportion 0)
-		AddItem(a.Pages, 0, 1, true).
-		AddItem(a.Flash.View, 2, 1, false)
-		// AddItem(a.Footer.View, 1, 1, false)
+	if !a.Cfg.D4S.UI.Headless {
+		a.Layout.AddItem(a.Header.View, 7, 1, false)
+	}
+	a.Layout.AddItem(a.CmdLine.View, 0, 0, false). // Hidden by default (size 0, proportion 0)
+		AddItem(a.Pages, 0, 1, true)
+
+	if !a.Cfg.D4S.UI.Crumbsless {
+		a.Layout.AddItem(a.Flash.View, 2, 1, false)
+	}
 
 	// Global Shortcuts
 	a.TviewApp.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		
-		// Priority 0: Global Exit on Ctrl+C (Must be first)
+		// Priority 0: Global Exit on Ctrl+C (unless noExitOnCtrlC is set)
 		if event.Key() == tcell.KeyCtrlC {
-			a.TviewApp.Stop()
+			if !a.Cfg.D4S.NoExitOnCtrlC {
+				a.TviewApp.Stop()
+				return nil
+			}
+			// When noExitOnCtrlC is true, Ctrl+C is ignored — use :quit instead
 			return nil
 		}
 
@@ -449,8 +472,10 @@ func (a *App) initUI() {
 		return event
 	})
 
-	// Initial State
-	a.Pages.SwitchToPage(styles.TitleContainers)
+	// Initial State: use defaultView from config, fallback to Containers
+	initialView := a.resolveDefaultView()
+	a.Pages.SwitchToPage(initialView)
+	a.CurrentView = initialView
 	a.updateHeader()
 }
 
@@ -470,6 +495,41 @@ func (a *App) GetScreen() tcell.Screen {
 
 func (a *App) GetDocker() *dao.DockerClient {
 	return a.Docker
+}
+
+func (a *App) GetConfig() *config.Config {
+	return a.Cfg
+}
+
+func (a *App) IsReadOnly() bool {
+	return a.Cfg.D4S.ReadOnly
+}
+
+// resolveDefaultView maps the config defaultView string to a valid view title.
+func (a *App) resolveDefaultView() string {
+	v := strings.ToLower(strings.TrimSpace(a.Cfg.D4S.DefaultView))
+	switch v {
+	case "containers", "container":
+		return styles.TitleContainers
+	case "images", "image":
+		return styles.TitleImages
+	case "volumes", "volume":
+		return styles.TitleVolumes
+	case "networks", "network":
+		return styles.TitleNetworks
+	case "services", "service":
+		return styles.TitleServices
+	case "nodes", "node":
+		return styles.TitleNodes
+	case "compose", "project":
+		return styles.TitleCompose
+	case "aliases", "alias":
+		return styles.TitleAliases
+	case "secrets", "secret":
+		return styles.TitleSecrets
+	default:
+		return styles.TitleContainers
+	}
 }
 
 func (a *App) SetActiveScope(scope *common.Scope) {
@@ -711,7 +771,7 @@ func (a *App) RunInBackground(task func()) {
 		defer func() {
 			if r := recover(); r != nil {
 				a.TviewApp.QueueUpdateDraw(func() {
-					a.Flash.SetText(fmt.Sprintf("[red]Background task panic: %v", r))
+					a.Flash.SetText(fmt.Sprintf("[%s]Background task panic: %v", styles.TagError, r))
 					// Also print to stdout for debugging if app is still running or logs are captured
 					fmt.Printf("Background task panic: %v\nStack trace:\n%s\n", r, string(debug.Stack()))
 				})

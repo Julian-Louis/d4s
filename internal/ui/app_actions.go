@@ -13,6 +13,11 @@ import (
 )
 
 func (a *App) PerformAction(action func(id string) error, actionName string, color tcell.Color) {
+	if a.IsReadOnly() {
+		a.AppendFlashError("read-only mode: modifications are disabled")
+		return
+	}
+
 	page, _ := a.Pages.GetFrontPage()
 	view, ok := a.Views[page]
 	if !ok {

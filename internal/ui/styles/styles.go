@@ -1,6 +1,11 @@
 package styles
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"fmt"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/lucasb-eyer/go-colorful"
+)
 
 // Indigo / Dracula-like / K9s Color Palette (Restored)
 var (
@@ -37,8 +42,9 @@ var (
 	ColorSelect = tcell.NewRGBColor(153, 251, 152) // Green
 	
 	// Text Colors
-	ColorDim         = tcell.NewRGBColor(98, 114, 164)  // Comment/Dim
-	ColorAccent      = tcell.NewRGBColor(255, 184, 108) // Orange
+	ColorDim         = tcell.ColorDimGray  // Comment/Dim
+	ColorAccent      = tcell.NewRGBColor(255, 165, 3) // Orange
+	ColorAccentLight = tcell.NewRGBColor(255, 184, 108) // Light Orange
 	
 	// Status
 	ColorLogo        = tcell.NewRGBColor(255, 184, 108) // Orange
@@ -63,6 +69,52 @@ var (
 	ColorStatusPurpleDarkBg = tcell.NewRGBColor(38, 30, 46)    // Darker Purple
 )
 
+// Tview markup-compatible color hex strings.
+// These track the tcell.Color variables above so that format strings
+// like fmt.Sprintf("[%s]text", styles.TagFg) produce the correct color
+// even after InvertColors() is called.
+var (
+	TagFg     = colorToTag(ColorFg)       // replaces [white]
+	TagBg     = colorToTag(ColorBg)       // replaces [black]
+	TagAccent = colorToTag(ColorAccent)   // replaces [orange]
+	TagAccentLight = colorToTag(ColorAccentLight) // replaces [light orange]
+	TagIdle   = colorToTag(ColorIdle)     // replaces [blue] (info blue)
+	TagDim    = colorToTag(ColorDim)      // replaces [gray] / [dim]
+	TagError  = colorToTag(ColorError)    // replaces [red]
+	TagInfo   = colorToTag(ColorInfo)     // replaces [green]
+	TagTitle  = colorToTag(ColorTitle)    // purple title
+	TagCyan   = "#00ffff"                 // breadcrumb/title cyan
+	TagPink   = "#ff00ff"                 // scope label pink
+	TagFilter = "#bd93f9"                 // filter badge purple
+	TagSCKey       = "#2090ff"                 // shortcut key blue
+)
+
+// colorToTag converts a tcell.Color to a tview-compatible hex tag like "#rrggbb".
+func colorToTag(c tcell.Color) string {
+	r, g, b := c.RGB()
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
+// refreshTags re-derives all Tag* strings from the current Color* variables.
+// standalone colors (cyan, pink, etc.) are inverted manually.
+func refreshTags(invert bool) {
+	TagFg = colorToTag(ColorFg)
+	TagBg = colorToTag(ColorBg)
+	TagAccent = colorToTag(ColorAccent)
+	TagAccentLight = colorToTag(ColorAccentLight)
+	TagIdle = colorToTag(ColorIdle)
+	TagDim = colorToTag(ColorDim)
+	TagError = colorToTag(ColorError)
+	TagInfo = colorToTag(ColorInfo)
+	TagTitle = colorToTag(ColorTitle)
+	TagFilter = colorToTag(ColorTitle)
+	if invert {
+		TagCyan = colorToTag(invertColor(tcell.NewRGBColor(0, 255, 255)))
+		TagPink = colorToTag(invertColor(tcell.NewRGBColor(255, 0, 255)))
+		TagSCKey = colorToTag(invertColor(tcell.NewRGBColor(32, 144, 255)))
+	}
+}
+
 const (
 	TitleContainers = "Containers"
 	TitleImages     = "Images"
@@ -74,3 +126,61 @@ const (
 	TitleAliases    = "Aliases"
 	TitleSecrets    = "Secrets"
 )
+
+// invertColor inverts a tcell.Color by flipping its lightness while preserving hue and saturation.
+func invertColor(c tcell.Color) tcell.Color {
+	if c == tcell.Color16 {
+		// Special case: dark terminal background -> light
+		return tcell.NewRGBColor(240, 240, 240)
+	}
+	r, g, b := c.RGB()
+	col := colorful.Color{R: float64(r) / 255.0, G: float64(g) / 255.0, B: float64(b) / 255.0}
+	h, s, l := col.Hsl()
+	inverted := colorful.Hsl(h, s, 1.0-l)
+	ir, ig, ib := inverted.RGB255()
+	return tcell.NewRGBColor(int32(ir), int32(ig), int32(ib))
+}
+
+// InvertColors flips all theme colors from dark to light or vice versa.
+func InvertColors() {
+	ColorBg = invertColor(ColorBg)
+	ColorFg = invertColor(ColorFg)
+	ColorTableBorder = invertColor(ColorTableBorder)
+	ColorBlack = invertColor(ColorBlack)
+	ColorWhite = invertColor(ColorWhite)
+	ColorHeader = invertColor(ColorHeader)
+	ColorHeaderFocus = invertColor(ColorHeaderFocus)
+	ColorTitle = invertColor(ColorTitle)
+	ColorIdle = invertColor(ColorIdle)
+	ColorTeal = invertColor(ColorTeal)
+	ColorFooterBg = invertColor(ColorFooterBg)
+	ColorFooterFg = invertColor(ColorFooterFg)
+	ColorFlashFg = invertColor(ColorFlashFg)
+	ColorFlashBg = invertColor(ColorFlashBg)
+	ColorSelectBg = invertColor(ColorSelectBg)
+	ColorSelectFg = invertColor(ColorSelectFg)
+	ColorValue = invertColor(ColorValue)
+	ColorSelect = invertColor(ColorSelect)
+	ColorDim = invertColor(ColorDim)
+	ColorAccent = invertColor(ColorAccent)
+	ColorLogo = invertColor(ColorLogo)
+	ColorError = invertColor(ColorError)
+	ColorInfo = invertColor(ColorInfo)
+	ColorStatusGreen = invertColor(ColorStatusGreen)
+	ColorStatusRed = invertColor(ColorStatusRed)
+	ColorStatusGray = invertColor(ColorStatusGray)
+	ColorStatusYellow = invertColor(ColorStatusYellow)
+	ColorStatusOrange = invertColor(ColorStatusOrange)
+	ColorStatusBlue = invertColor(ColorStatusBlue)
+	ColorStatusPurple = invertColor(ColorStatusPurple)
+	ColorStatusRedDarkBg = invertColor(ColorStatusRedDarkBg)
+	ColorStatusGreenDarkBg = invertColor(ColorStatusGreenDarkBg)
+	ColorStatusGrayDarkBg = invertColor(ColorStatusGrayDarkBg)
+	ColorStatusYellowDarkBg = invertColor(ColorStatusYellowDarkBg)
+	ColorStatusOrangeDarkBg = invertColor(ColorStatusOrangeDarkBg)
+	ColorStatusBlueDarkBg = invertColor(ColorStatusBlueDarkBg)
+	ColorStatusPurpleDarkBg = invertColor(ColorStatusPurpleDarkBg)
+
+	// Refresh all tag strings to match the inverted colors
+	refreshTags(true)
+}
