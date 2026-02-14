@@ -151,6 +151,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("s", "Scale"),
 		common.FormatSCHeader("r", "Restart"),
 		common.FormatSCHeader("z", "No Replica"),
+		common.FormatSCHeader("shift-e", "Edit Env"),
 		common.FormatSCHeader("shift-x", "Attach Secrets"),
 		common.FormatSCHeader("shift-n", "Attach Networks"),
 		common.FormatSCHeader("shift-i", "Edit Image"),
@@ -180,6 +181,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case 'X':
 		SecretsPicker(app, v)
+		return nil
+	case 'E':
+		EnvPicker(app, v)
 		return nil
 	case 'N':
 		NetworksPicker(app, v)
@@ -500,6 +504,51 @@ func SecretsPicker(app common.AppController, v *view.ResourceView) {
 					app.SetFlashError(fmt.Sprintf("%v", err))
 				} else {
 					app.SetFlashSuccess("service secrets updated")
+					app.RefreshCurrentView()
+				}
+			})
+		})
+	})
+}
+
+func EnvPicker(app common.AppController, v *view.ResourceView) {
+	id, err := v.GetSelectedID()
+	if err != nil {
+		return
+	}
+
+	env, err := app.GetDocker().GetServiceEnv(id)
+	if err != nil {
+		app.SetFlashError(fmt.Sprintf("%v", err))
+		return
+	}
+
+	subject := resolveServiceSubject(v, id)
+
+	var items []dialogs.EnvItem
+	for _, line := range env {
+		parts := strings.SplitN(line, "=", 2)
+		key := parts[0]
+		value := ""
+		if len(parts) == 2 {
+			value = parts[1]
+		}
+		items = append(items, dialogs.EnvItem{
+			Key:      key,
+			Value:    value,
+			Selected: true,
+		})
+	}
+
+	dialogs.ShowEnvEditor(app, fmt.Sprintf("Env for %s", subject), items, func(envVars []string) {
+		app.SetFlashPending("updating service env...")
+		app.RunInBackground(func() {
+			err := app.GetDocker().SetServiceEnv(id, envVars)
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				if err != nil {
+					app.SetFlashError(fmt.Sprintf("%v", err))
+				} else {
+					app.SetFlashSuccess("service env updated")
 					app.RefreshCurrentView()
 				}
 			})

@@ -240,6 +240,22 @@ func (m *Manager) GetEnv(id string) ([]string, error) {
 	return service.Spec.TaskTemplate.ContainerSpec.Env, nil
 }
 
+func (m *Manager) SetEnv(id string, env []string) error {
+	service, _, err := m.cli.ServiceInspectWithRaw(m.ctx, id, swarm.ServiceInspectOptions{})
+	if err != nil {
+		return err
+	}
+
+	if service.Spec.TaskTemplate.ContainerSpec == nil {
+		return fmt.Errorf("service has no container spec")
+	}
+
+	service.Spec.TaskTemplate.ContainerSpec.Env = env
+
+	_, err = m.cli.ServiceUpdate(m.ctx, id, service.Version, service.Spec, swarm.ServiceUpdateOptions{})
+	return err
+}
+
 func (m *Manager) GetSecrets(id string) ([]*swarm.SecretReference, error) {
 	service, _, err := m.cli.ServiceInspectWithRaw(m.ctx, id, swarm.ServiceInspectOptions{})
 	if err != nil {

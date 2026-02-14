@@ -379,6 +379,10 @@ func (d *DockerClient) GetServiceEnv(id string) ([]string, error) {
 	return d.Service.GetEnv(id)
 }
 
+func (d *DockerClient) SetServiceEnv(id string, env []string) error {
+	return d.Service.SetEnv(id, env)
+}
+
 func (d *DockerClient) GetServiceSecrets(id string) ([]*swarm.SecretReference, error) {
 	return d.Service.GetSecrets(id)
 }
