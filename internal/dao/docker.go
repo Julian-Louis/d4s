@@ -310,6 +310,10 @@ func (d *DockerClient) UpdateServiceImage(id string, image string) error {
 	return d.Service.UpdateImage(id, image)
 }
 
+func (d *DockerClient) RestartService(id string) error {
+	return d.Service.Restart(id)
+}
+
 func (d *DockerClient) RemoveService(id string) error {
 	return d.Service.Remove(id)
 }

@@ -149,6 +149,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("p", "Ps"),
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("s", "Scale"),
+		common.FormatSCHeader("r", "Restart"),
 		common.FormatSCHeader("z", "No Replica"),
 		common.FormatSCHeader("shift-x", "Attach Secrets"),
 		common.FormatSCHeader("shift-n", "Attach Networks"),
@@ -194,6 +195,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case 'p':
 		Ps(app, v)
+		return nil
+	case 'r':
+		RestartAction(app, v)
 		return nil
 	case 'z':
 		ScaleZero(app, v)
@@ -329,6 +333,20 @@ func ScaleAction(app common.AppController, v *view.ResourceView) {
 		}
 	}
 	Scale(app, id, currentReplicas)
+}
+
+func RestartAction(app common.AppController, v *view.ResourceView) {
+	ids, err := v.GetSelectedIDs()
+	if err != nil {
+		return
+	}
+
+	dialogs.ShowConfirmation(app, "RESTART", fmt.Sprintf("%d services", len(ids)), func(force bool) {
+		restartAction := func(id string) error {
+			return app.GetDocker().RestartService(id)
+		}
+		app.PerformAction(restartAction, "restarting", styles.ColorStatusOrange)
+	})
 }
 
 func ScaleZero(app common.AppController, v *view.ResourceView) {

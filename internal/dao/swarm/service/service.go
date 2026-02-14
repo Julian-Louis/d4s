@@ -192,6 +192,18 @@ func (m *Manager) UpdateImage(id string, image string) error {
 	return err
 }
 
+func (m *Manager) Restart(id string) error {
+	service, _, err := m.cli.ServiceInspectWithRaw(m.ctx, id, swarm.ServiceInspectOptions{})
+	if err != nil {
+		return err
+	}
+
+	service.Spec.TaskTemplate.ForceUpdate++
+
+	_, err = m.cli.ServiceUpdate(m.ctx, id, service.Version, service.Spec, swarm.ServiceUpdateOptions{})
+	return err
+}
+
 func (m *Manager) Remove(id string) error {
 	return m.cli.ServiceRemove(m.ctx, id)
 }
