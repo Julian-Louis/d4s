@@ -2,6 +2,8 @@ package secrets
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -22,6 +24,7 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 func GetShortcuts() []string {
 	return []string{
 		common.FormatSCHeader("s", "Services"),
+		common.FormatSCHeader("x", "Decode"),
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("a", "Add"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
@@ -39,6 +42,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	switch event.Rune() {
 	case 's':
 		ViewServices(app, v)
+		return nil
+	case 'x':
+		Decode(app, v)
 		return nil
 	case 'd':
 		app.InspectCurrentSelection()
@@ -132,6 +138,94 @@ func Create(app common.AppController) {
 					app.RefreshCurrentView()
 				}
 			})
+		})
+	})
+}
+
+func Decode(app common.AppController, v *view.ResourceView) {
+	id, err := v.GetSelectedID()
+	if err != nil {
+		return
+	}
+
+	name := id
+	row, _ := v.Table.GetSelection()
+	if row > 0 {
+		index := row - 1
+		if index >= 0 && index < len(v.Data) {
+			if s, ok := v.Data[index].(dao.Secret); ok {
+				name = s.Name
+			}
+		}
+	}
+
+	inspector := inspect.NewTextInspector("Decode secret", name, " [orange]Loading value...\n", "text")
+	app.OpenInspector(inspector)
+
+	app.RunInBackground(func() {
+		serviceName := fmt.Sprintf("d4s-secret-decode-%d", time.Now().UnixNano())
+
+		createCmd := exec.Command("docker", "service", "create",
+			"--name", serviceName,
+			"--secret", name,
+			"--restart-condition", "none",
+			"--detach",
+			"ghcr.io/jr-k/nget:latest",
+			"cat", fmt.Sprintf("/run/secrets/%s", name),
+		)
+
+		if out, err := createCmd.CombinedOutput(); err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: failed to create decode service: %v — %s", err, strings.TrimSpace(string(out))), "text")
+			})
+			return
+		}
+
+		defer func() {
+			exec.Command("docker", "service", "rm", serviceName).Run()
+		}()
+
+		var content string
+		var decodeErr error
+
+		for i := 0; i < 30; i++ {
+			time.Sleep(1 * time.Second)
+
+			psCmd := exec.Command("docker", "service", "ps", "--format", "{{.CurrentState}}", "--no-trunc", serviceName)
+			psOut, err := psCmd.Output()
+			if err != nil {
+				continue
+			}
+
+			state := strings.TrimSpace(string(psOut))
+			if strings.Contains(state, "Complete") {
+				logsCmd := exec.Command("docker", "service", "logs", "--raw", serviceName)
+				logOut, err := logsCmd.Output()
+				if err != nil {
+					decodeErr = fmt.Errorf("failed to read logs: %v", err)
+				} else {
+					content = string(logOut)
+				}
+				break
+			}
+
+			if strings.Contains(state, "Failed") || strings.Contains(state, "Rejected") {
+				decodeErr = fmt.Errorf("service task failed: %s", state)
+				break
+			}
+		}
+
+		if decodeErr == nil && content == "" {
+			decodeErr = fmt.Errorf("timed out waiting for secret decode")
+		}
+
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			if decodeErr != nil {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", decodeErr), "text")
+				return
+			}
+
+			inspector.Viewer.Update(fmt.Sprintf("%s=%s", name, content), "env")
 		})
 	})
 }

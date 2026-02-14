@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -131,6 +132,9 @@ func (a *App) Run() error {
 	
 	// Check for updates
 	go a.checkLatestVersion()
+
+	// Pre-pull nget image so volume shell and secret decode are fast on first use
+	go exec.Command("docker", "pull", "ghcr.io/jr-k/nget:latest").Run()
 
 	return a.TviewApp.SetRoot(a.Layout, true).Run()
 }
