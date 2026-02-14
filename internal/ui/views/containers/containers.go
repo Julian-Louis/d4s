@@ -15,7 +15,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"ID", "NAME", "IMAGE", "IP", "STATUS", "AGE", "PORTS", "CPU", "MEM", "COMPOSE", "CMD", "CREATED"}
+var Headers = []string{"ID", "NAME", "IMAGE", "STATUS", "CPU", "MEM", "AGE", "IP", "PORTS", "COMPOSE", "CMD", "CREATED"}
 
 func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, error) {
 	data, err := app.GetDocker().ListContainers()

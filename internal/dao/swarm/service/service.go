@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	dt "github.com/docker/docker/api/types"
@@ -128,10 +129,17 @@ func (m *Manager) List() ([]common.Resource, error) {
 			replicas = fmt.Sprintf("%d", running)
 		}
 
-		ports := ""
-		if len(s.Endpoint.Ports) > 0 {
-			ports = fmt.Sprintf("%d->%d", s.Endpoint.Ports[0].PublishedPort, s.Endpoint.Ports[0].TargetPort)
+		seen := make(map[string]bool)
+		portList := make([]string, 0, len(s.Endpoint.Ports))
+		for _, p := range s.Endpoint.Ports {
+			entry := fmt.Sprintf("%d->%d", p.PublishedPort, p.TargetPort)
+			if !seen[entry] {
+				seen[entry] = true
+				portList = append(portList, entry)
+			}
 		}
+		sort.Strings(portList)
+		ports := strings.Join(portList, ", ")
 
 		imageName := s.Spec.TaskTemplate.ContainerSpec.Image
 		// Clean image name (remove sha)

@@ -3,6 +3,7 @@ package container
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -68,7 +69,7 @@ func (c Container) GetCells() []string {
 	if len(id) > 12 {
 		id = id[:12]
 	}
-	return []string{id, c.Names, c.Image, c.IP, c.Status, c.Age, c.Ports, c.CPU, c.Mem, c.Compose, c.Cmd, c.Created}
+	return []string{id, c.Names, c.Image, c.Status, c.CPU, c.Mem, c.Age, c.IP, c.Ports, c.Compose, c.Cmd, c.Created}
 }
 
 func (c Container) GetStatusColor() (tcell.Color, tcell.Color) {
@@ -211,10 +212,17 @@ func (m *Manager) List() ([]common.Resource, error) {
 			name = strings.TrimPrefix(c.Names[0], "/")
 		}
 		
-		ports := ""
-		if len(c.Ports) > 0 {
-			ports = fmt.Sprintf("%d->%d", c.Ports[0].PublicPort, c.Ports[0].PrivatePort)
+		seen := make(map[string]bool)
+		portList := make([]string, 0, len(c.Ports))
+		for _, p := range c.Ports {
+			entry := fmt.Sprintf("%d->%d", p.PublicPort, p.PrivatePort)
+			if !seen[entry] {
+				seen[entry] = true
+				portList = append(portList, entry)
+			}
 		}
+		sort.Strings(portList)
+		ports := strings.Join(portList, ", ")
 
 		compose := ""
 		if cf, ok := c.Labels["com.docker.compose.project.config_files"]; ok {
@@ -263,9 +271,12 @@ func (m *Manager) List() ([]common.Resource, error) {
 		cmd = fmt.Sprintf("%s", cmd)
 
 		imageName := c.Image
-		parts := strings.SplitN(imageName, ":", 2)
-		if len(parts) == 2 {
-			imageName = fmt.Sprintf("%s:%s", parts[0], parts[1])
+		if idx := strings.Index(imageName, "@sha256:"); idx != -1 {
+			sha := imageName[idx+len("@sha256:"):]
+			if len(sha) > 12 {
+				sha = sha[:6] + "..." + sha[len(sha)-6:]
+			}
+			imageName = imageName[:idx] + "@sha256:" + sha
 		}
 
 		res[i] = Container{
