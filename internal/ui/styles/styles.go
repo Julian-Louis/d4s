@@ -280,6 +280,11 @@ func ApplySkin(skin *config.Skin) {
 	}
 	if c, ok := parseHexColor(s.Frame.Title.FilterColor); ok {
 		ColorFilterTag = c
+	}
+	if c, ok := parseHexColor(s.Frame.Title.TitleColor); ok {
+		ColorCyanTag = c
+	}
+	if c, ok := parseHexColor(s.Frame.Title.ScopeColor); ok {
 		ColorPinkTag = c
 	}
 
@@ -301,7 +306,6 @@ func ApplySkin(skin *config.Skin) {
 		ColorIdle = c
 		ColorTeal = c
 		ColorFlashFg = c
-		ColorCyanTag = c
 	}
 	if c, ok := parseHexColor(s.Frame.Status.WarnColor); ok {
 		ColorStatusYellow = c

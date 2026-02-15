@@ -39,6 +39,8 @@ d4s:
       fgColor: *purple
       highlightColor: *orange
       filterColor: *purple
+      titleColor: *cyan
+      scopeColor: *pink
     menu:
       keyColor: *cyan
     # Resource status and indicator styles

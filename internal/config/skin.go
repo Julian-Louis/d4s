@@ -62,6 +62,8 @@ type SkinFrameTitle struct {
 	FgColor        string `yaml:"fgColor"`
 	HighlightColor string `yaml:"highlightColor"`
 	FilterColor    string `yaml:"filterColor"`
+	TitleColor     string `yaml:"titleColor"`
+	ScopeColor     string `yaml:"scopeColor"`
 }
 
 type SkinFrameMenu struct {
