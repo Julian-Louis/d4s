@@ -210,6 +210,25 @@ d4s:
     image: ghcr.io/jr-k/nget:latest
 ```
 
+## Skins
+
+### Built-in Skins
+
+Set skin using `--skin` (or `-s`) flag when running `d4s` or set `d4s.ui.skin` option in the configuration file.
+
+D4S comes with a few built-in skins:
+
+- `default`
+- `dracula`
+- `monokai`
+- `nord`
+- `gruvbox`
+- `tokyonight`
+
+### Custom Skins
+
+D4S supports custom skins. Skins are stored in `$XDG_DATA_HOME/d4s/skins/<name>.yaml` (defaults to `~/.local/share/d4s/skins`).
+
 ## Contributing
 
 There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING.md) to see how you can help.

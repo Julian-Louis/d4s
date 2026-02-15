@@ -16,10 +16,26 @@ var defaultSkinYAML []byte
 //go:embed skins/dracula.yaml
 var draculaSkinYAML []byte
 
+//go:embed skins/monokai.yaml
+var monokaiSkinYAML []byte
+
+//go:embed skins/nord.yaml
+var nordSkinYAML []byte
+
+//go:embed skins/gruvbox.yaml
+var gruvboxSkinYAML []byte
+
+//go:embed skins/tokyonight.yaml
+var tokyoNightSkinYAML []byte
+
 // builtinSkins maps skin names to their embedded YAML data.
 var builtinSkins = map[string][]byte{
-	"default": defaultSkinYAML,
-	"dracula": draculaSkinYAML,
+	"default":        defaultSkinYAML,
+	"dracula":        draculaSkinYAML,
+	"monokai":        monokaiSkinYAML,
+	"nord":           nordSkinYAML,
+	"gruvbox":        gruvboxSkinYAML,
+	"tokyonight":     tokyoNightSkinYAML,
 }
 
 // Skin represents a d4s skin loaded from a YAML file.
