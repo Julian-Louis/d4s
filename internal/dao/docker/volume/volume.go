@@ -85,7 +85,7 @@ func (v Volume) GetDefaultColumn() string {
 }
 
 func (v Volume) GetDefaultSortColumn() string {
-	return "Anon"
+	return "Name"
 }
 
 type ContainerVolume struct {
@@ -103,7 +103,7 @@ func (v ContainerVolume) GetCells() []string {
 }
 
 func (v ContainerVolume) GetDefaultSortColumn() string {
-	return "Anon"
+	return "Name"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

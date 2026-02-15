@@ -33,6 +33,10 @@ type ResourceView struct {
 	CurrentScope *common.Scope          // Tracks which scope the current data belongs to
 	IsLoading    bool                   // Navigation lock
 
+	// Pinned sort: always applied first (unless user sorts on this column)
+	PinnedSortColumn string // Column name (e.g. "ANON"), resolved dynamically
+	PinnedSortAsc    bool
+
 	// Optional Overrides
 	InputHandler             func(event *tcell.EventKey) *tcell.EventKey
 	ShortcutsFunc            func() []string
@@ -472,12 +476,39 @@ func (v *ResourceView) Refilter() {
 	}
 
 	// 2. Sort Data
+	// Resolve pinned sort column index (if configured)
+	pinnedCol := -1
+	if v.PinnedSortColumn != "" {
+		for i, h := range v.Headers {
+			if strings.EqualFold(h, v.PinnedSortColumn) {
+				pinnedCol = i
+				break
+			}
+		}
+	}
+
 	sort.SliceStable(filtered, func(i, j int) bool {
 		if v.SortCol < 0 {
 			return i < j
 		}
 		rowI := filtered[i].GetCells()
 		rowJ := filtered[j].GetCells()
+
+		// Apply pinned sort first (unless user explicitly sorts on the pinned column)
+		if pinnedCol >= 0 && pinnedCol != v.SortCol &&
+			pinnedCol < len(rowI) && pinnedCol < len(rowJ) {
+			pI := rowI[pinnedCol]
+			pJ := rowJ[pinnedCol]
+			lessIJ := common.CompareValues(pI, pJ)
+			lessJI := common.CompareValues(pJ, pI)
+			if lessIJ || lessJI { // values differ on pinned column
+				if v.PinnedSortAsc {
+					return lessIJ
+				}
+				return lessJI
+			}
+			// equal on pinned column → fall through to user sort
+		}
 
 		if v.SortCol >= len(rowI) || v.SortCol >= len(rowJ) {
 			return i < j

@@ -260,6 +260,8 @@ func (a *App) initUI() {
 	vVolumes.RemoveFunc = volumes.Remove
 	vVolumes.PruneFunc = volumes.Prune
 	vVolumes.Headers = volumes.Headers
+	vVolumes.PinnedSortColumn = "ANON"
+	vVolumes.PinnedSortAsc = true
 	vVolumes.InputHandler = func(event *tcell.EventKey) *tcell.EventKey {
 		return volumes.InputHandler(vVolumes, event)
 	}
