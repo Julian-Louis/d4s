@@ -26,31 +26,42 @@ func GetShortcuts() []string {
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("node", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
 	subject := id
 	if len(id) > 12 {
 		subject = id[:12]
 	}
+	inspector := inspect.NewTextInspector("Describe node", subject, fmt.Sprintf(" [%s]Loading node...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
 
-	// Resolve Hostname
-	nodes, err := app.GetDocker().ListNodes()
-	if err == nil {
-		for _, item := range nodes {
-			if item.GetID() == id {
-				if n, ok := item.(dao.Node); ok {
-					subject = fmt.Sprintf("%s@%s", n.Hostname, subject)
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("node", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve Hostname
+		resolvedSubject := subject
+		nodes, err := app.GetDocker().ListNodes()
+		if err == nil {
+			for _, item := range nodes {
+				if item.GetID() == id {
+					if n, ok := item.(dao.Node); ok {
+						resolvedSubject = fmt.Sprintf("%s@%s", n.Hostname, resolvedSubject)
+					}
+					break
 				}
-				break
 			}
 		}
-	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe node", subject, content, "json"))
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {

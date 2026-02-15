@@ -48,8 +48,8 @@ func GetShortcuts() []string {
 	return []string{
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("v", "Dive"),
-		common.FormatSCHeader("p", "Prune"),
 		common.FormatSCHeader("r", "Pull"),
+		common.FormatSCHeader("shift-p", "Prune"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 	}
 }
@@ -67,7 +67,7 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'r':
 		PullAction(app, v)
 		return nil
-	case 'p':
+	case 'P':
 		PruneAction(app)
 		return nil
 	case 'd':
@@ -182,39 +182,44 @@ func PullAction(app common.AppController, v *view.ResourceView) {
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("image", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
 	subject := id
 	if len(id) > 12 {
 		subject = id[:12]
 	}
+	inspector := inspect.NewTextInspector("Describe image", subject, fmt.Sprintf(" [%s]Loading image...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
 
-	// Resolve Tags from List
-	images, err := app.GetDocker().ListImages()
-	if err == nil {
-		for _, item := range images {
-			// dao.Image ID usually matches trimmed?
-			// dao.Image GetID returns trimmed. 'id' passed here is usually full or trimmed?
-			// app.InspectCurrentSelection passes resource.GetID().
-			// Which is trimmed in dao.Image.List().
-			// Double check? dao/docker/image/image.go: ID: strings.TrimPrefix(i.ID, "sha256:")
-			// So it is full hex without prefix, likely 64 chars.
-			if item.GetID() == id {
-				if img, ok := item.(dao.Image); ok {
-					if img.Tags != "" && img.Tags != "<none>" {
-						subject = fmt.Sprintf("%s@%s", img.Tags, subject)
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("image", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve Tags from List
+		resolvedSubject := subject
+		images, err := app.GetDocker().ListImages()
+		if err == nil {
+			for _, item := range images {
+				if item.GetID() == id {
+					if img, ok := item.(dao.Image); ok {
+						if img.Tags != "" && img.Tags != "<none>" {
+							resolvedSubject = fmt.Sprintf("%s@%s", img.Tags, resolvedSubject)
+						}
 					}
+					break
 				}
-				break
 			}
 		}
-	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe image", subject, content, "json"))
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func DeleteAction(app common.AppController, v *view.ResourceView) {

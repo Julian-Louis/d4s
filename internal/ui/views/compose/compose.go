@@ -19,34 +19,60 @@ import (
 var Headers = []string{"PROJECT", "READY", "STATUS", "CONFIG FILES"}
 
 func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, error) {
-	return app.GetDocker().ListCompose()
-}
-
-func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().GetComposeConfig(id)
+	data, err := app.GetDocker().ListCompose()
 	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
+		return nil, err
 	}
 
-	// Resolve config path for title
-	path := ""
-	projects, _ := app.GetDocker().ListCompose()
-	for _, p := range projects {
-		if cp, ok := p.(daoCompose.ComposeProject); ok {
-			if cp.Name == id && len(cp.ConfigPaths) > 0 {
-				path = cp.ConfigPaths[0]
-				break
+	scope := app.GetActiveScope()
+	if scope != nil {
+		if scope.Type == "container" {
+			var scopedData []dao.Resource
+			for _, res := range data {
+				if cp, ok := res.(daoCompose.ComposeProject); ok {
+					if cp.Name == scope.Value {
+						scopedData = append(scopedData, res)
+					}
+				}
 			}
+			return scopedData, nil
 		}
 	}
 
-	subject := id
-	if path != "" {
-		subject = fmt.Sprintf("%s@%s", id, daoCommon.ShortenPath(path))
-	}
+	return data, nil
+}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe compose", subject, content, "yaml"))
+func Inspect(app common.AppController, id string) {
+	inspector := inspect.NewTextInspector("Describe compose", id, fmt.Sprintf(" [%s]Loading compose...\n", styles.TagAccent), "yaml")
+	app.OpenInspector(inspector)
+
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().GetComposeConfig(id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve config path for title
+		resolvedSubject := id
+		projects, _ := app.GetDocker().ListCompose()
+		for _, p := range projects {
+			if cp, ok := p.(daoCompose.ComposeProject); ok {
+				if cp.Name == id && len(cp.ConfigPaths) > 0 {
+					resolvedSubject = fmt.Sprintf("%s@%s", id, daoCommon.ShortenPath(cp.ConfigPaths[0]))
+					break
+				}
+			}
+		}
+
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "yaml")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func GetShortcuts() []string {

@@ -24,33 +24,41 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("network", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
-	name := ""
-	list, _ := app.GetDocker().ListNetworks()
-	for _, item := range list {
-		if item.GetID() == id {
-			if net, ok := item.(dao.Network); ok {
-				name = net.Name
-			}
-			break
-		}
-	}
-
 	subject := id
 	if len(id) > 12 {
 		subject = id[:12]
 	}
+	inspector := inspect.NewTextInspector("Describe network", subject, fmt.Sprintf(" [%s]Loading network...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
 
-	if name != "" && name != id {
-		subject = fmt.Sprintf("%s@%s", name, subject)
-	}
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("network", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe network", subject, content, "json"))
+		resolvedSubject := subject
+		list, _ := app.GetDocker().ListNetworks()
+		for _, item := range list {
+			if item.GetID() == id {
+				if net, ok := item.(dao.Network); ok {
+					if net.Name != "" && net.Name != id {
+						resolvedSubject = fmt.Sprintf("%s@%s", net.Name, resolvedSubject)
+					}
+				}
+				break
+			}
+		}
+
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func GetShortcuts() []string {
@@ -58,7 +66,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("c", "Containers"),
 		common.FormatSCHeader("a", "Add"),
-		common.FormatSCHeader("p", "Prune"),
+		common.FormatSCHeader("shift-p", "Prune"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 	}
 }
@@ -96,7 +104,7 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'a':
 		Create(app)
 		return nil
-	case 'p':
+	case 'P':
 		PruneAction(app)
 		return nil
 	}

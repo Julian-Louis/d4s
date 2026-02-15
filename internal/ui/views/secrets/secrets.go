@@ -231,29 +231,40 @@ func Decode(app common.AppController, v *view.ResourceView) {
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("secret", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
 	subject := id
 	if len(id) > 12 {
 		subject = id[:12]
 	}
+	inspector := inspect.NewTextInspector("Describe secret", subject, fmt.Sprintf(" [%s]Loading secret...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
 
-	// Resolve Name
-	secrets, err := app.GetDocker().ListSecrets()
-	if err == nil {
-		for _, item := range secrets {
-			if item.GetID() == id {
-				if s, ok := item.(dao.Secret); ok {
-					subject = fmt.Sprintf("%s@%s", s.Name, subject)
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("secret", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve Name
+		resolvedSubject := subject
+		secrets, err := app.GetDocker().ListSecrets()
+		if err == nil {
+			for _, item := range secrets {
+				if item.GetID() == id {
+					if s, ok := item.(dao.Secret); ok {
+						resolvedSubject = fmt.Sprintf("%s@%s", s.Name, resolvedSubject)
+					}
+					break
 				}
-				break
 			}
 		}
-	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe secret", subject, content, "json"))
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }

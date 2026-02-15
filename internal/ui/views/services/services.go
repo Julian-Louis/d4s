@@ -368,31 +368,42 @@ func ScaleZero(app common.AppController, v *view.ResourceView) {
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("service", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
 	subject := id
 	if len(id) > 12 {
 		subject = id[:12]
 	}
+	inspector := inspect.NewTextInspector("Describe service", subject, fmt.Sprintf(" [%s]Loading service...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
 
-	// Resolve Name
-	services, err := app.GetDocker().ListServices()
-	if err == nil {
-		for _, item := range services {
-			if item.GetID() == id {
-				if s, ok := item.(dao.Service); ok {
-					subject = fmt.Sprintf("%s@%s", s.Name, subject)
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("service", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve Name
+		resolvedSubject := subject
+		services, err := app.GetDocker().ListServices()
+		if err == nil {
+			for _, item := range services {
+				if item.GetID() == id {
+					if s, ok := item.(dao.Service); ok {
+						resolvedSubject = fmt.Sprintf("%s@%s", s.Name, resolvedSubject)
+					}
+					break
 				}
-				break
 			}
 		}
-	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe service", subject, content, "json"))
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func Remove(id string, force bool, app common.AppController) error {

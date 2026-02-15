@@ -55,8 +55,9 @@ func (i *TextInspector) GetShortcuts() []string {
 func (i *TextInspector) OnMount(app common.AppController) {
 	i.App = app
 	i.Viewer = NewTextViewer(app)
+
 	i.Viewer.Update(i.Content, i.Lang)
-	
+
 	tv := i.Viewer.View
 	tv.SetBorder(true).
 		SetTitle(i.GetTitle()).

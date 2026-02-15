@@ -3,6 +3,7 @@ package inspect
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"sync"
 
 	"github.com/alecthomas/chroma/v2/quick"
@@ -12,6 +13,9 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
+
+// reTviewColorTag matches tview dynamic color tags like [#ffa503] or [-]
+var reTviewColorTag = regexp.MustCompile(`\[#[0-9a-fA-F]+\]|\[-\]|\[-:-\]|\[-:-:-\]`)
 
 // TextViewer encapsulates a TextView with syntax highlighting, search, and navigation.
 // Used by Inspectors for displaying text/json/yaml.
@@ -146,6 +150,12 @@ func (t *TextViewer) InputHandler(event *tcell.EventKey) bool {
 
 func (t *TextViewer) highlightContent(content, lang string) string {
 	if lang == "" || lang == "text" {
+		return content
+	}
+
+	// Skip Chroma if content already contains tview color tags (e.g. loading messages).
+	// Chroma would treat them as literal text and mangle the tags.
+	if reTviewColorTag.MatchString(content) {
 		return content
 	}
 

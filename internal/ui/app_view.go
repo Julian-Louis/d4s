@@ -302,11 +302,18 @@ func (a *App) InspectCurrentSelection() {
 			resourceType = "compose"
 	}
 
-	content, err := a.Docker.Inspect(resourceType, id)
-	if err != nil {
-		a.Flash.SetText(fmt.Sprintf("[%s]Inspect error: %v", styles.TagError, err))
-		return
-	}
+	inspector := inspect.NewTextInspector("Inspect", id, fmt.Sprintf(" [%s]Loading %s...\n", styles.TagAccent, resourceType), "json")
+	a.OpenInspector(inspector)
 
-	a.OpenInspector(inspect.NewTextInspector("Inspect", id, content, "json"))
+	a.RunInBackground(func() {
+		content, err := a.Docker.Inspect(resourceType, id)
+		a.GetTviewApp().QueueUpdateDraw(func() {
+			if err != nil {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			} else {
+				inspector.Viewer.Update(content, "json")
+				inspector.Viewer.View.SetTitle(inspector.GetTitle())
+			}
+		})
+	})
 }

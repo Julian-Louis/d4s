@@ -95,7 +95,15 @@ type ContainerVolume struct {
 }
 
 func (v ContainerVolume) GetCells() []string {
-	return []string{v.Name, v.Type, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, v.Size}
+	anon := ""
+	if v.Anonymous {
+		anon = "Yes"
+	}
+	return []string{v.Name, v.Type, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, v.Size, anon}
+}
+
+func (v ContainerVolume) GetDefaultSortColumn() string {
+	return "Anon"
 }
 
 func (m *Manager) List() ([]common.Resource, error) {

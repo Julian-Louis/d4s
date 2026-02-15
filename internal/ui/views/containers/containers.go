@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao"
@@ -106,8 +107,9 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("m", "Monitor"),
 		common.FormatSCHeader("v", "Volumes"),
 		common.FormatSCHeader("n", "Networks"),
+		common.FormatSCHeader("p", "Project"),
 		common.FormatSCHeader("r", "(Re)Start"),
-		common.FormatSCHeader("p", "Prune"),
+		common.FormatSCHeader("shift-p", "Prune"),
 		common.FormatSCHeader("shift-s", "Root Shell"),
 		common.FormatSCHeader("shift-n", "Attach Network"),
 		common.FormatSCHeader("ctrl-k", "Stop"),
@@ -147,6 +149,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'l':
 		Logs(app, v)
 		return nil
+	case 'p':
+		Project(app, v)
+		return nil
 	case 'i':
 		InspectImage(app, v)
 		return nil
@@ -170,7 +175,7 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'r':
 		RestartOrStart(app, v)
 		return nil
-	case 'p':
+	case 'P':
 		PruneAction(app)
 		return nil
 	}
@@ -450,6 +455,41 @@ func InspectImage(app common.AppController, v *view.ResourceView) {
 	})
 
 	app.SwitchTo(styles.TitleImages)
+}
+
+func Project(app common.AppController, v *view.ResourceView) {
+	id, err := v.GetSelectedID()
+	if err != nil { return }
+
+	var projectName string
+
+	for _, res := range v.Data {
+		if res.GetID() == id {
+			if c, ok := res.(dao.Container); ok {
+				projectName = c.ProjectName
+			}
+			break
+		}
+	}
+
+	if projectName == "" {
+		app.SetFlashMessage(
+			fmt.Sprintf(" [%s]This container is not part of a compose project", styles.TagAccent),
+			3*time.Second,
+		)
+		return
+	}
+
+	subject := resolveContainerSubject(v, id)
+
+	app.SetActiveScope(&common.Scope{
+		Type:       "container",
+		Value:      projectName,
+		Label:      subject,
+		OriginView: styles.TitleContainers,
+	})
+
+	app.SwitchTo(styles.TitleCompose)
 }
 
 func RestartOrStart(app common.AppController, v *view.ResourceView) {

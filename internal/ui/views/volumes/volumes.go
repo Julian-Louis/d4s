@@ -23,7 +23,7 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 	scope := app.GetActiveScope()
 	if scope != nil && scope.Type == "container" {
 		// Switch headers for Container Scope
-		v.Headers = []string{"NAME", "TYPE", "DRIVER", "SCOPE", "DESTINATION", "MOUNTPOINT", "CREATED", "SIZE"}
+		v.Headers = []string{"NAME", "TYPE", "DRIVER", "SCOPE", "DESTINATION", "MOUNTPOINT", "CREATED", "SIZE", "ANON"}
 		return app.GetDocker().ListVolumesForContainer(scope.Value)
 	}
 	
@@ -38,7 +38,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("o", "Open"),
 		common.FormatSCHeader("a", "Add"),
-		common.FormatSCHeader("p", "Prune"),
+		common.FormatSCHeader("shift-p", "Prune"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 	}
 }
@@ -63,7 +63,7 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'a':
 		Create(app)
 		return nil
-	case 'p':
+	case 'P':
 		PruneAction(app)
 		return nil
 	case 'd':
@@ -188,29 +188,41 @@ func Open(app common.AppController, res dao.Resource) {
 }
 
 func Inspect(app common.AppController, id string) {
-	content, err := app.GetDocker().Inspect("volume", id)
-	if err != nil {
-		app.SetFlashError(fmt.Sprintf("%v", err))
-		return
-	}
-
 	subject := id
-	// Resolve Mountpoint
-	volumes, err := app.GetDocker().ListVolumes()
-	if err == nil {
-		for _, item := range volumes {
-			if item.GetID() == id {
-				if vol, ok := item.(dao.Volume); ok {
-					if vol.Mount != "" {
-						subject = fmt.Sprintf("%s@%s", id, daoCommon.ShortenPath(vol.Mount))
+	inspector := inspect.NewTextInspector("Describe volume", subject, fmt.Sprintf(" [%s]Loading volume...\n", styles.TagAccent), "json")
+	app.OpenInspector(inspector)
+
+	app.RunInBackground(func() {
+		content, err := app.GetDocker().Inspect("volume", id)
+		if err != nil {
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
+			})
+			return
+		}
+
+		// Resolve Mountpoint
+		resolvedSubject := id
+		volumes, err := app.GetDocker().ListVolumes()
+		if err == nil {
+			for _, item := range volumes {
+				if item.GetID() == id {
+					if vol, ok := item.(dao.Volume); ok {
+						if vol.Mount != "" {
+							resolvedSubject = fmt.Sprintf("%s@%s", id, daoCommon.ShortenPath(vol.Mount))
+						}
 					}
+					break
 				}
-				break
 			}
 		}
-	}
 
-	app.OpenInspector(inspect.NewTextInspector("Describe volume", subject, content, "json"))
+		app.GetTviewApp().QueueUpdateDraw(func() {
+			inspector.Subject = resolvedSubject
+			inspector.Viewer.Update(content, "json")
+			inspector.Viewer.View.SetTitle(inspector.GetTitle())
+		})
+	})
 }
 
 func Shell(app common.AppController, id string) {
