@@ -9,12 +9,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/cli/cli/config"
 	clicontext "github.com/docker/cli/cli/context"
 	"github.com/docker/cli/cli/context/docker"
 	"github.com/docker/cli/cli/context/store"
+	dcontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/jr-k/d4s/internal/dao/common"
@@ -218,7 +220,42 @@ func (d *DockerClient) ListImages() ([]common.Resource, error) {
 }
 
 func (d *DockerClient) ListVolumes() ([]common.Resource, error) {
-	return d.Volume.List()
+	vols, err := d.Volume.List()
+	if err != nil {
+		return nil, err
+	}
+
+	// Build volume name -> container names mapping
+	usageMap := make(map[string][]string)
+	containers, err := d.Cli.ContainerList(d.Ctx, dcontainer.ListOptions{All: true})
+	if err == nil {
+		for _, c := range containers {
+			name := ""
+			if len(c.Names) > 0 {
+				name = strings.TrimPrefix(c.Names[0], "/")
+			}
+			if name == "" {
+				name = c.ID[:12]
+			}
+			for _, m := range c.Mounts {
+				if m.Type == "volume" {
+					usageMap[m.Name] = append(usageMap[m.Name], name)
+				}
+			}
+		}
+	}
+
+	// Enrich volumes with usage info
+	for i, r := range vols {
+		if v, ok := r.(volume.Volume); ok {
+			if names, found := usageMap[v.Name]; found {
+				v.UsedBy = strings.Join(names, ", ")
+			}
+			vols[i] = v
+		}
+	}
+
+	return vols, nil
 }
 
 func (d *DockerClient) ListNetworks() ([]common.Resource, error) {
@@ -445,43 +482,57 @@ func (d *DockerClient) ListVolumesForContainer(id string) ([]common.Resource, er
 	if err != nil {
 		return nil, err
 	}
-	
-	names := make(map[string]bool)
+
+	// Collect volume names to fetch from Docker volume list
+	volumeNames := make(map[string]bool)
 	for _, m := range json.Mounts {
 		if m.Type == "volume" {
-			names[m.Name] = true
+			volumeNames[m.Name] = true
 		}
 	}
-	
-	// List all volumes and filter
-	all, err := d.Volume.List()
-	if err != nil {
-		return nil, err
-	}
-	
-	var filtered []common.Resource
-	for _, r := range all {
-		if v, ok := r.(volume.Volume); ok {
-			if names[v.Name] {
-				// Get destination from map (if I update map to store it)
-				dest := ""
-				for _, m := range json.Mounts {
-					if m.Type == "volume" && m.Name == v.Name {
-						dest = m.Destination
-						break
-					}
-				}
 
-				cv := volume.ContainerVolume{
-					Volume:      v,
-					Destination: dest,
-				}
-				filtered = append(filtered, cv)
+	// List all Docker volumes and index them by name
+	volumeIndex := make(map[string]volume.Volume)
+	all, err := d.Volume.List()
+	if err == nil {
+		for _, r := range all {
+			if v, ok := r.(volume.Volume); ok {
+				volumeIndex[v.Name] = v
 			}
 		}
 	}
-	
-	return filtered, nil
+
+	var result []common.Resource
+	for _, m := range json.Mounts {
+		mountType := strings.ToUpper(string(m.Type))
+
+		switch m.Type {
+		case "volume":
+			if v, ok := volumeIndex[m.Name]; ok {
+				result = append(result, volume.ContainerVolume{
+					Volume:      v,
+					Destination: m.Destination,
+					Type:        mountType,
+				})
+			}
+		default:
+			// bind, tmpfs, npipe, etc.
+			result = append(result, volume.ContainerVolume{
+				Volume: volume.Volume{
+					Name:    m.Source,
+					Driver:  "-",
+					Scope:   "-",
+					Mount:   m.Source,
+					Created: "-",
+					Size:    "-",
+				},
+				Destination: m.Destination,
+				Type:        mountType,
+			})
+		}
+	}
+
+	return result, nil
 }
 
 func (d *DockerClient) ListNetworksForContainer(id string) ([]common.Resource, error) {

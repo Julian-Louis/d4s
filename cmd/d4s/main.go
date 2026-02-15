@@ -45,6 +45,18 @@ func main() {
 	flag.StringVar(&contextName, "context", "", "Docker context to use")
 	flag.StringVar(&contextName, "c", "", "Docker context to use (shorthand)")
 
+	// Skin flag
+	var skinName string
+	flag.StringVar(&skinName, "skin", "", "Skin to use (overrides config)")
+	flag.StringVar(&skinName, "s", "", "Skin to use (shorthand)")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\nOptions:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  -v, --version          Print version and exit\n")
+		fmt.Fprintf(os.Stderr, "  -c, --context string   Docker context to use\n")
+		fmt.Fprintf(os.Stderr, "  -s, --skin string      Skin to use (overrides config)\n")
+	}
+
 	flag.Parse()
 
 	// Accept also: d4s version (as positional arg)
@@ -81,6 +93,11 @@ func main() {
 	}
 
 	cfg := config.Load()
+
+	// CLI skin flag has max precedence
+	if skinName != "" {
+		cfg.D4S.UI.Skin = skinName
+	}
 
 	app, err := ui.NewApp(contextName, cfg)
 	if err != nil {

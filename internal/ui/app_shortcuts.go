@@ -21,7 +21,8 @@ func (a *App) getCurrentShortcuts() []string {
 	}
 	
 	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("shift ←/→", "Sort"))
-	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("c", "Copy"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("shift-c", "Copy Table"))
+	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("c", "Copy Cell"))
 	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("u", "Unselect All"))
 	shortcuts = append(shortcuts, common.FormatSCHeaderGlobal("?", "Help"))
 	

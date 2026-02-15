@@ -469,8 +469,11 @@ func (a *App) initUI() {
 			a.Pages.AddPage("help", a.Help, true, true)
 			a.UpdateShortcuts()
 			return nil
-		case 'c': // Global Copy
+		case 'c': // Global Copy Cell
 			a.PerformCopy()
+			return nil
+		case 'C': // Global Copy View
+			a.PerformCopyView()
 			return nil
 		}
 

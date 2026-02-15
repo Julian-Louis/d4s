@@ -196,6 +196,45 @@ func (a *App) PerformCopy() {
 	a.UpdateShortcuts()
 }
 
+func (a *App) PerformCopyView() {
+	page, _ := a.Pages.GetFrontPage()
+	view, ok := a.Views[page]
+	if !ok {
+		return
+	}
+
+	if len(view.Data) == 0 {
+		a.AppendFlashError("nothing to copy")
+		return
+	}
+
+	// Build TSV: headers + all visible rows
+	var sb strings.Builder
+
+	// Headers
+	sb.WriteString(strings.Join(view.Headers, "\t"))
+	sb.WriteString("\n")
+
+	// Rows
+	for _, item := range view.Data {
+		cells := item.GetCells()
+		cleaned := make([]string, len(cells))
+		for i, c := range cells {
+			cleaned[i] = common.StripColorTags(c)
+		}
+		sb.WriteString(strings.Join(cleaned, "\t"))
+		sb.WriteString("\n")
+	}
+
+	text := strings.TrimRight(sb.String(), "\n")
+	if err := a.CopyToClipboard(text); err != nil {
+		a.AppendFlashError(fmt.Sprintf("%v", err))
+	} else {
+		a.AppendFlashSuccess(fmt.Sprintf("copied %d rows", len(view.Data)))
+	}
+	a.UpdateShortcuts()
+}
+
 func (a *App) CopyToClipboard(text string) error {
 	return clipboard.WriteAll(text)
 }

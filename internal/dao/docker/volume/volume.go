@@ -31,11 +31,12 @@ type Volume struct {
 	Created string
 	Size    string
 	Scope   string
+	UsedBy  string
 }
 
 func (v Volume) GetID() string { return v.Name }
 func (v Volume) GetCells() []string {
-	return []string{v.Name, v.Driver, v.Scope, v.Mount, v.Created, v.Size}
+	return []string{v.Name, v.Driver, v.Scope, v.UsedBy, v.Mount, v.Created, v.Size}
 }
 
 func (v Volume) GetStatusColor() (tcell.Color, tcell.Color) {
@@ -56,6 +57,8 @@ func (v Volume) GetColumnValue(column string) string {
 		return v.Created
 	case "size":
 		return v.Size
+	case "used by":
+		return v.UsedBy
 	}
 	return ""
 }
@@ -71,11 +74,11 @@ func (v Volume) GetDefaultSortColumn() string {
 type ContainerVolume struct {
 	Volume
 	Destination string
+	Type        string
 }
 
 func (v ContainerVolume) GetCells() []string {
-    // Note: This must match the headers defined in volumes.go when in container scope
-	return []string{v.Name, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, v.Size}
+	return []string{v.Name, v.Type, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, v.Size}
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
