@@ -71,11 +71,16 @@ type DockerClient struct {
 	Secret    *secret.Manager
 	Compose   *compose.Manager
 
-	// Resource cache for fast scoped queries
-	cacheMu          sync.RWMutex
-	volumeCache      []common.Resource            // Raw Volume.List() results
-	networkCache     []common.Resource            // Network.List() results
-	containerInfoMap map[string]containerInfoCache // containerID -> mount/network info
+	// Resource cache for fast scoped queries and stale-while-revalidate
+	cacheMu              sync.RWMutex
+	volumeCache          []common.Resource            // Raw Volume.List() results (for scoped queries)
+	enrichedVolumeCache  []common.Resource            // Full ListVolumes() result (with UsedBy)
+	networkCache         []common.Resource            // Network.List() results
+	containerInfoMap     map[string]containerInfoCache // containerID -> mount/network info
+
+	// Guard against concurrent async refreshes
+	refreshMu  sync.Mutex
+	refreshing map[string]bool
 }
 
 func NewDockerClient(contextName string, apiTimeout time.Duration) (*DockerClient, error) {
@@ -106,6 +111,7 @@ func NewDockerClient(contextName string, apiTimeout time.Duration) (*DockerClien
 		Secret:           secret.NewManager(cli, ctx),
 		Compose:          compose.NewManager(cli, ctx),
 		containerInfoMap: make(map[string]containerInfoCache),
+		refreshing:       make(map[string]bool),
 	}, nil
 }
 
@@ -240,7 +246,23 @@ func (d *DockerClient) ListImages() ([]common.Resource, error) {
 	return d.Image.List()
 }
 
+// ListVolumes returns cached enriched volumes immediately if available,
+// then triggers an async refresh in the background. First call is synchronous.
 func (d *DockerClient) ListVolumes() ([]common.Resource, error) {
+	d.cacheMu.RLock()
+	cached := d.enrichedVolumeCache
+	d.cacheMu.RUnlock()
+
+	if cached != nil {
+		d.asyncRefresh("volumes", func() { d.fetchVolumes() })
+		return cached, nil
+	}
+
+	return d.fetchVolumes()
+}
+
+// fetchVolumes does the actual Docker API calls (expensive: Volume.List + DiskUsage + ContainerList).
+func (d *DockerClient) fetchVolumes() ([]common.Resource, error) {
 	vols, err := d.Volume.List()
 	if err != nil {
 		return nil, err
@@ -304,10 +326,30 @@ func (d *DockerClient) ListVolumes() ([]common.Resource, error) {
 		}
 	}
 
+	// Cache enriched result for next call
+	d.cacheMu.Lock()
+	d.enrichedVolumeCache = vols
+	d.cacheMu.Unlock()
+
 	return vols, nil
 }
 
+// ListNetworks returns cached networks immediately if available,
+// then triggers an async refresh in the background. First call is synchronous.
 func (d *DockerClient) ListNetworks() ([]common.Resource, error) {
+	d.cacheMu.RLock()
+	cached := d.networkCache
+	d.cacheMu.RUnlock()
+
+	if cached != nil {
+		d.asyncRefresh("networks", func() { d.fetchNetworks() })
+		return cached, nil
+	}
+
+	return d.fetchNetworks()
+}
+
+func (d *DockerClient) fetchNetworks() ([]common.Resource, error) {
 	result, err := d.Network.List()
 	if err != nil {
 		return nil, err
@@ -318,6 +360,27 @@ func (d *DockerClient) ListNetworks() ([]common.Resource, error) {
 	d.cacheMu.Unlock()
 
 	return result, nil
+}
+
+// asyncRefresh triggers a background refresh for the given key, ensuring at most one
+// concurrent refresh per key.
+func (d *DockerClient) asyncRefresh(key string, refresh func()) {
+	d.refreshMu.Lock()
+	if d.refreshing[key] {
+		d.refreshMu.Unlock()
+		return
+	}
+	d.refreshing[key] = true
+	d.refreshMu.Unlock()
+
+	go func() {
+		defer func() {
+			d.refreshMu.Lock()
+			delete(d.refreshing, key)
+			d.refreshMu.Unlock()
+		}()
+		refresh()
+	}()
 }
 
 func (d *DockerClient) ListServices() ([]common.Resource, error) {

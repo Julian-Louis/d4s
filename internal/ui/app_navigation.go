@@ -105,12 +105,13 @@ func (a *App) SwitchToWithSelection(viewName string, reset bool) {
 		}
 
 		if scopeChanged {
-			// Scope changed: stale data belongs to a different context, must clear
+			// Scope changed: show loader to avoid displaying data from the wrong context
 			v.SetLoading(true)
 		} else if len(v.Data) == 0 && len(v.RawData) == 0 {
 			// No data at all (preload hasn't completed yet): show loading
 			v.SetLoading(true)
 		}
+		// Same scope with existing data: keep it visible (preload benefit)
 
 		// Don't spawn a goroutine here! 
 		// RefreshCurrentView accesses UI state (ActiveScope, FrontPage) and calls UpdateShortcuts (UI).
