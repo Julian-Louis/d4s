@@ -270,14 +270,11 @@ func Shell(app common.AppController, id string) {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		defer func() {
-			exec.Command("docker", "rm", "-f", containerName).Run()
-		}()
-
 		if err := cmd.Run(); err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				code := exitErr.ExitCode()
 				if code == 130 || code == 137 || code == 0 {
+					go exec.Command("docker", "rm", "-f", containerName).Run()
 					return
 				}
 			}
@@ -286,6 +283,9 @@ func Shell(app common.AppController, id string) {
 			fmt.Println("Press Enter to continue...")
 			fmt.Scanln()
 		}
+
+		go exec.Command("docker", "rm", "-f", containerName).Run()
+		fmt.Print("\033[H\033[2J")
 	})
 
 	if app.GetScreen() != nil {
