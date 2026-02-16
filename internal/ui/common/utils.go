@@ -17,6 +17,19 @@ func CompareValues(a, b string) bool {
 	cleanA := StripColorTags(a)
 	cleanB := StripColorTags(b)
 
+	// 0. Handle "-" (no data) — always treat as smallest value
+	trimA := strings.TrimSpace(cleanA)
+	trimB := strings.TrimSpace(cleanB)
+	if trimA == "-" && trimB == "-" {
+		return false
+	}
+	if trimA == "-" {
+		return true
+	}
+	if trimB == "-" {
+		return false
+	}
+
 	// 1. Percentage
 	if strings.HasSuffix(cleanA, "%") && strings.HasSuffix(cleanB, "%") {
 		fa, errA := strconv.ParseFloat(strings.TrimSuffix(cleanA, "%"), 64)
