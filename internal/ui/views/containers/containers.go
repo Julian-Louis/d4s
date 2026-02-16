@@ -418,7 +418,7 @@ func Shell(app common.AppController, id string, asRoot bool) {
 		}()
 
 		err := cmd.Run()
-		fmt.Printf("\nReturning to d4s...\n")
+		fmt.Printf("\nReturning to d4s, please wait...\n")
 
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
