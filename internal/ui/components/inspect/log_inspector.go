@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/config"
@@ -137,6 +138,7 @@ func (i *LogInspector) GetShortcuts() []string {
 		common.FormatSCHeader("s", "Scroll"),
 		common.FormatSCHeader("w", "Wrap"),
 		common.FormatSCHeader("t", "Time"),
+		common.FormatSCHeader("c", "Copy"),
 		common.FormatSCHeader("shift-c", "Clear"),
 	)
 }
@@ -221,6 +223,8 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		i.Timestamps = !i.Timestamps
 		i.updateTitle()
 		i.startStreaming() // Restart with new setting
+	case 'c':
+		i.copyToClipboard()
 	case 'C': // Shift+c
 		if i.TextView != nil {
 			i.TextView.Clear()
@@ -242,6 +246,18 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 	}
 	
 	return event
+}
+
+func (i *LogInspector) copyToClipboard() {
+	if i.TextView == nil {
+		return
+	}
+	content := i.TextView.GetText(true)
+	if err := clipboard.WriteAll(content); err != nil {
+		i.App.AppendFlashError(fmt.Sprintf("%v", err))
+	} else {
+		i.App.AppendFlashSuccess(fmt.Sprintf("copied %d bytes", len(content)))
+	}
 }
 
 func (i *LogInspector) setSince(mode string) {
