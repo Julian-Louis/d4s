@@ -116,10 +116,23 @@ func (m *Manager) List() ([]common.Resource, error) {
 			}
 		}
 
-		projects[proj].total++
 		if c.State == "running" {
+			projects[proj].total++
 			projects[proj].running++
+			continue
 		}
+
+		// One-shot containers (restart: "no") that exited successfully are expected to stop
+		if c.State == "exited" {
+			inspect, err := m.cli.ContainerInspect(m.ctx, c.ID)
+			if err == nil && inspect.HostConfig != nil &&
+				inspect.HostConfig.RestartPolicy.Name == "no" &&
+				inspect.State != nil && inspect.State.ExitCode == 0 {
+				continue
+			}
+		}
+
+		projects[proj].total++
 	}
 
 	var res []common.Resource
