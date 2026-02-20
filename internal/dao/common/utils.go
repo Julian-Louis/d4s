@@ -192,13 +192,20 @@ func CalculateStatsFromMap(v map[string]interface{}) (float64, uint64, uint64, f
 		}
 	}
 
-	// Mem
+	// Mem (subtract inactive file cache, same as docker stats)
 	if memStats, ok := v["memory_stats"].(map[string]interface{}); ok {
 		if usage, ok := memStats["usage"].(float64); ok {
 			memUsage = uint64(usage)
 		}
 		if limit, ok := memStats["limit"].(float64); ok {
 			memLimit = uint64(limit)
+		}
+		if stats, ok := memStats["stats"].(map[string]interface{}); ok {
+			if v, ok := stats["total_inactive_file"].(float64); ok && uint64(v) < memUsage {
+				memUsage -= uint64(v)
+			} else if v, ok := stats["inactive_file"].(float64); ok && uint64(v) < memUsage {
+				memUsage -= uint64(v)
+			}
 		}
 	}
 	
