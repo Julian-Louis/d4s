@@ -453,11 +453,25 @@ func (d *DockerClient) RemoveNetwork(id string) error {
 }
 
 func (d *DockerClient) ConnectNetwork(networkID, containerID string) error {
-	return d.Network.Connect(networkID, containerID)
+	err := d.Network.Connect(networkID, containerID)
+	if err == nil {
+		d.invalidateContainerInfoCache(containerID)
+	}
+	return err
 }
 
 func (d *DockerClient) DisconnectNetwork(networkID, containerID string) error {
-	return d.Network.Disconnect(networkID, containerID)
+	err := d.Network.Disconnect(networkID, containerID)
+	if err == nil {
+		d.invalidateContainerInfoCache(containerID)
+	}
+	return err
+}
+
+func (d *DockerClient) invalidateContainerInfoCache(containerID string) {
+	d.cacheMu.Lock()
+	delete(d.containerInfoMap, containerID)
+	d.cacheMu.Unlock()
 }
 
 func (d *DockerClient) PruneNetworks() error {

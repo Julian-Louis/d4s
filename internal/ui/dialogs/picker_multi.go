@@ -63,6 +63,7 @@ func ShowMultiPicker(app common.AppController, title string, items []MultiPicker
 			content += fmt.Sprintf("%s%s %s[-]\n", color, checkbox, item.Label)
 		}
 		list.SetText(content)
+		list.ScrollTo(currentIndex, 0)
 	}
 
 	updateList()

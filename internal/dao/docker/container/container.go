@@ -253,16 +253,18 @@ func (m *Manager) List() ([]common.Resource, error) {
 			m.statsMutex.RUnlock()
 		}
 
-		ip := ""
+		ipList := make([]string, 0)
 		networks := make(map[string]string)
 		if c.NetworkSettings != nil {
 			for name, n := range c.NetworkSettings.Networks {
-				if ip == "" && n.IPAddress != "" {
-					ip = n.IPAddress
+				if n.IPAddress != "" {
+					ipList = append(ipList, n.IPAddress)
 				}
 				networks[name] = n.NetworkID
 			}
 		}
+		sort.Strings(ipList)
+		ip := strings.Join(ipList, ", ")
 
 		cmd := c.Command
 		// if len(cmd) > 20 {
