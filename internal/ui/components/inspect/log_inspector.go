@@ -441,8 +441,7 @@ func (i *LogInspector) startStreaming() {
 					return
 				}
 
-				line = escapeTviewBrackets(line)
-				line = tview.TranslateANSI(line)
+				line = tview.TranslateANSI(tview.Escape(line))
 				
 				// Filter logic (supports negation with ^)
 				if i.filter != "" {

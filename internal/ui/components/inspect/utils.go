@@ -7,20 +7,6 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-// escapeTviewBrackets escapes literal [ so tview renders them as-is,
-// while preserving ANSI CSI sequences (\x1b[) for TranslateANSI.
-func escapeTviewBrackets(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		if s[i] == '[' && (i == 0 || s[i-1] != '\x1b') {
-			b.WriteString("[\"\"]")
-		} else {
-			b.WriteByte(s[i])
-		}
-	}
-	return b.String()
-}
 
 // FormatInspectorTitle generates the standard title string for inspectors
 // Format: Action(subject) [Mode] <Search>
