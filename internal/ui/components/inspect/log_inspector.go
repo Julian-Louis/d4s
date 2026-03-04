@@ -151,7 +151,7 @@ func (i *LogInspector) OnMount(app common.AppController) {
 		SetTextAlign(tview.AlignCenter).
 		SetWrap(false).
 		SetText(i.GetStatus())
-	i.HeaderView.SetBackgroundColor(tcell.ColorBlack)
+	i.HeaderView.SetBackgroundColor(styles.ColorBlack)
 
 	i.TextView = tview.NewTextView().
 		SetDynamicColors(true).
@@ -165,7 +165,7 @@ func (i *LogInspector) OnMount(app common.AppController) {
 			i.TextView.ScrollToEnd()
 		}
 	})
-	i.TextView.SetBackgroundColor(tcell.ColorBlack)
+	i.TextView.SetBackgroundColor(styles.ColorBlack)
 
 	i.Flex = tview.NewFlex().
 		SetDirection(tview.FlexRow).
@@ -176,7 +176,7 @@ func (i *LogInspector) OnMount(app common.AppController) {
 		SetTitle(i.GetTitle()).
 		SetTitleColor(styles.ColorTitle).
 		SetBorderColor(styles.ColorIdle).
-		SetBackgroundColor(tcell.ColorBlack).
+		SetBackgroundColor(styles.ColorBlack).
 		SetBorderPadding(0, 0, 0, 0)
 		
 	i.startStreaming()
