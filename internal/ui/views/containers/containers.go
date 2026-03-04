@@ -206,9 +206,9 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		label = fmt.Sprintf("%d items", len(ids))
 	}
 
-	dialogs.ShowConfirmation(app, "DELETE", label, func(force bool) {
+	dialogs.ShowConfirmation(app, "DELETE", label, func(_ bool) {
 		simpleAction := func(id string) error {
-			return Remove(id, force, app)
+			return Remove(id, true, app)
 		}
 		app.PerformAction(simpleAction, "deleting", styles.ColorStatusRed)
 	})

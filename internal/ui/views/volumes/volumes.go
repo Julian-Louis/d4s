@@ -20,13 +20,13 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"NAME", "DRIVER", "SCOPE", "USED BY", "MOUNTPOINT", "CREATED", "SIZE", "ANON"}
+var Headers = []string{"NAME", "DRIVER", "SCOPE", "USED BY", "MOUNTPOINT", "CREATED", "ANON"}
 
 func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, error) {
 	scope := app.GetActiveScope()
 	if scope != nil && scope.Type == "container" {
 		// Switch headers for Container Scope
-		v.Headers = []string{"NAME", "TYPE", "DRIVER", "SCOPE", "DESTINATION", "MOUNTPOINT", "CREATED", "SIZE", "ANON"}
+		v.Headers = []string{"NAME", "TYPE", "DRIVER", "SCOPE", "DESTINATION", "MOUNTPOINT", "CREATED", "ANON"}
 		return app.GetDocker().ListVolumesForContainer(scope.Value)
 	}
 	

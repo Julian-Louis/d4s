@@ -679,7 +679,6 @@ func (d *DockerClient) ListVolumesForContainer(id string) ([]common.Resource, er
 					Scope:   "-",
 					Mount:   m.Source,
 					Created: "-",
-					Size:    "-",
 				},
 				Destination: m.Destination,
 				Type:        mountType,

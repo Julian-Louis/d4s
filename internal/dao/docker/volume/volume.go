@@ -1,18 +1,17 @@
 package volume
 
 import (
-	"context"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	volTypes "github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
+	"golang.org/x/net/context"
 )
 
 var reAnonymousVolume = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -32,7 +31,6 @@ type Volume struct {
 	Driver    string
 	Mount     string
 	Created   string
-	Size      string
 	Scope     string
 	UsedBy    string
 	Anonymous bool
@@ -48,7 +46,7 @@ func (v Volume) GetCells() []string {
 	if v.Anonymous {
 		anon = "Yes"
 	}
-	return []string{v.Name, v.Driver, v.Scope, v.UsedBy, v.Mount, v.Created, v.Size, anon}
+	return []string{v.Name, v.Driver, v.Scope, v.UsedBy, v.Mount, v.Created, anon}
 }
 
 func (v Volume) GetStatusColor() (tcell.Color, tcell.Color) {
@@ -67,8 +65,6 @@ func (v Volume) GetColumnValue(column string) string {
 		return v.Mount
 	case "created":
 		return v.Created
-	case "size":
-		return v.Size
 	case "used by":
 		return v.UsedBy
 	case "anon":
@@ -99,7 +95,7 @@ func (v ContainerVolume) GetCells() []string {
 	if v.Anonymous {
 		anon = "Yes"
 	}
-	return []string{v.Name, v.Type, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, v.Size, anon}
+	return []string{v.Name, v.Type, v.Driver, v.Scope, v.Destination, v.Mount, v.Created, anon}
 }
 
 func (v ContainerVolume) GetDefaultSortColumn() string {
@@ -107,26 +103,9 @@ func (v ContainerVolume) GetDefaultSortColumn() string {
 }
 
 func (m *Manager) List() ([]common.Resource, error) {
-	// 1. Get List of all volumes (fast & reliable)
 	list, err := m.cli.VolumeList(m.ctx, volTypes.ListOptions{})
 	if err != nil {
 		return nil, err
-	}
-
-	// 2. Try to get Usage Data (optional / might fail or be partial)
-	sizes := make(map[string]string)
-
-	// Use a timeout context for DiskUsage as it can be very slow
-	ctx, cancel := context.WithTimeout(m.ctx, 2*time.Second)
-	defer cancel()
-
-	du, err := m.cli.DiskUsage(ctx, types.DiskUsageOptions{})
-	if err == nil {
-		for _, v := range du.Volumes {
-			if v.UsageData != nil {
-				sizes[v.Name] = common.FormatBytes(v.UsageData.Size)
-			}
-		}
 	}
 
 	var res []common.Resource
@@ -139,17 +118,11 @@ func (m *Manager) List() ([]common.Resource, error) {
 			}
 		}
 
-		size := "-"
-		if s, ok := sizes[v.Name]; ok {
-			size = s
-		}
-
 		res = append(res, Volume{
 			Name:      v.Name,
 			Driver:    v.Driver,
 			Mount:     common.ShortenPath(v.Mountpoint),
 			Created:   created,
-			Size:      size,
 			Scope:     v.Scope,
 			Anonymous: IsAnonymousVolume(v.Name),
 		})
