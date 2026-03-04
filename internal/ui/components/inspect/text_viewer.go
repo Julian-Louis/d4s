@@ -171,8 +171,8 @@ func (t *TextViewer) highlightContent(content, lang string) string {
 		return content
 	}
 
-	// Convert ANSI to tview tags
-	return tview.TranslateANSI(buf.String())
+	// Convert ANSI to tview tags (escape literal brackets first)
+	return tview.TranslateANSI(escapeTviewBrackets(buf.String()))
 }
 
 func (t *TextViewer) copyToClipboard() {
