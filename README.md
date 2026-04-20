@@ -265,6 +265,8 @@ Use `:ctx` to open the Docker context picker, switch the current d4s session to 
 
 If `DOCKER_HOST` or `DOCKER_CONTEXT` is set in your shell, those environment variables still override the saved D4S default for that launch.
 
+In a container log view opened with `l`, use `:logdump` or `:ld` to export the full log of that container to `~/.config/d4s/logs/<container-id>.<timestamp>.log` (or the equivalent `$XDG_CONFIG_HOME/d4s/logs/...` path).
+
 ## Contributing
 
 There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING.md) to see how you can help.

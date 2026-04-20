@@ -151,6 +151,20 @@ func configDir() string {
 	return filepath.Join(home, ".config", "d4s")
 }
 
+// ConfigDir returns the d4s config directory, respecting XDG_CONFIG_HOME.
+func ConfigDir() string {
+	return configDir()
+}
+
+// LogsDir returns the directory used for d4s log exports.
+func LogsDir() string {
+	dir := configDir()
+	if dir == "" {
+		return ""
+	}
+	return filepath.Join(dir, "logs")
+}
+
 // ensureConfigDirs creates the config directory and skins subdirectory if they don't exist.
 func ensureConfigDirs() {
 	dir := configDir()

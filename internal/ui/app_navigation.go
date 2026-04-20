@@ -45,6 +45,8 @@ func (a *App) ExecuteCmd(cmd string) {
 		a.SafeQueueUpdateDraw(func() {
 			a.ShowContextPicker()
 		})
+	case "ld", "logdump":
+		a.DumpActiveContainerLogs()
 	case "h", "help", "?":
 		a.Pages.AddPage("help", a.Help, true, true)
 	default:

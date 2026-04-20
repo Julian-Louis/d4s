@@ -117,6 +117,8 @@ var availableCommands = []string{
 	"context",
 	"contexts",
 	"ctx",
+	"logdump",
+	"ld",
 	"help",
 	"aliases",
 	"q",
@@ -129,6 +131,7 @@ var availableCommands = []string{
 	"p",
 	"a",
 	"ctx",
+	"ld",
 }
 
 // findBestSuggestion finds the best matching command for autocompletion
