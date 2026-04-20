@@ -480,6 +480,10 @@ func (a *App) initUI() {
 		case 'C': // Global Copy View
 			a.PerformCopyView()
 			return nil
+		case 'T': // Global Context Picker
+			a.ShowContextPicker()
+			a.UpdateShortcuts()
+			return nil
 		}
 
 		return event
@@ -696,8 +700,12 @@ func (a *App) SetFlashText(text string) {
 	a.Flash.SetText(text)
 }
 
-func (a *App) AppendFlash(text string) {
-	// No need to lock main flash, as we use a separate slot in FlashComponent.
+func (a *App) AppendFlash(text string, duration ...time.Duration) {
+	ttl := 5 * time.Second
+	if len(duration) > 0 {
+		ttl = duration[0]
+	}
+
 	a.appendMx.Lock()
 	defer a.appendMx.Unlock()
 
@@ -707,25 +715,24 @@ func (a *App) AppendFlash(text string) {
 
 	a.Flash.Append(text)
 
-	a.appendTimer = time.AfterFunc(2*time.Second, func() {
+	a.appendTimer = time.AfterFunc(ttl, func() {
 		a.appendMx.Lock()
 		defer a.appendMx.Unlock()
 		a.Flash.ClearAppend()
-		// SafeQueueUpdateDraw handles thread safety for the draw
 		a.SafeQueueUpdateDraw(func() {})
 	})
 }
 
-func (a *App) AppendFlashError(text string) {
-	a.AppendFlash(fmt.Sprintf("[black:red] <error: %s> [-:-]", text))
+func (a *App) AppendFlashError(text string, duration ...time.Duration) {
+	a.AppendFlash(fmt.Sprintf("[black:red] <error: %s> [-:-]", text), duration...)
 }
 
-func (a *App) AppendFlashPending(text string) {
-	a.AppendFlash(fmt.Sprintf("[black:%s] <pending: %s> [-:-]", styles.ColorIdle, text))
+func (a *App) AppendFlashPending(text string, duration ...time.Duration) {
+	a.AppendFlash(fmt.Sprintf("[black:%s] <pending: %s> [-:-]", styles.ColorIdle, text), duration...)
 }
 
-func (a *App) AppendFlashSuccess(text string) {
-	a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <success: %s> [-:-]", text))
+func (a *App) AppendFlashSuccess(text string, duration ...time.Duration) {
+	a.AppendFlash(fmt.Sprintf("[black:#50fa7b] <success: %s> [-:-]", text), duration...)
 }
 
 func (a *App) SetFlashMessage(text string, duration time.Duration) {

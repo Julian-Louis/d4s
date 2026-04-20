@@ -178,7 +178,7 @@ When deciding which Docker context to use, D4S applies the following precedence:
 4. `d4s.defaultContext` from `config.yaml`
 5. Docker CLI's own current/default context behavior
 
-If you select the literal `default` context from `:ctx`, D4S uses Docker's normal default context resolution rather than a named custom context.
+If you select the literal `default` context from `shift-t`, D4S uses Docker's normal default context resolution rather than a named custom context.
 
 All settings are optional and have sensible defaults. Below is a fully documented example:
 
@@ -261,11 +261,11 @@ D4S supports custom skins. Skins are stored in `$XDG_DATA_HOME/d4s/skins/<name>.
 
 ## Command Palette
 
-Use `:ctx` to open the Docker context picker, switch the current d4s session to a different context, and save that selection as the default context for future d4s launches.
+Use `shift-t` to open the Docker context picker, switch the current d4s session to a different context, and save that selection as the default context for future d4s launches.
 
 If `DOCKER_HOST` or `DOCKER_CONTEXT` is set in your shell, those environment variables still override the saved D4S default for that launch.
 
-In a container log view opened with `l`, use `:logdump` or `:ld` to export the full log of that container to `~/.config/d4s/logs/<container-id>.<timestamp>.log` (or the equivalent `$XDG_CONFIG_HOME/d4s/logs/...` path).
+In a container log view opened with `shift-d` to export the full log of that container to `~/.config/d4s/logs/<container-id>.<timestamp>.log` (or the equivalent `$XDG_CONFIG_HOME/d4s/logs/...` path).
 
 ## Contributing
 

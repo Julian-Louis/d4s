@@ -54,6 +54,8 @@ func (a *App) ShowContextPicker() {
 
 	dialogs.ShowPicker(a, "Docker Contexts", items, func(value string) {
 		a.SetDefaultContext(value)
+	}, func() {
+		a.UpdateShortcuts()
 	})
 }
 

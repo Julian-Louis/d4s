@@ -5,13 +5,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/atotto/clipboard"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/config"
+	daocommon "github.com/jr-k/d4s/internal/dao/common"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
@@ -140,6 +144,7 @@ func (i *LogInspector) GetShortcuts() []string {
 		common.FormatSCHeader("t", "Time"),
 		common.FormatSCHeader("c", "Copy"),
 		common.FormatSCHeader("shift-c", "Clear"),
+		common.FormatSCHeader("shift-d", "Dump"),
 	)
 }
 
@@ -200,11 +205,6 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 
-	if event.Rune() == ':' {
-		i.App.ActivateCmd(":")
-		return nil
-	}
-
 	if event.Rune() == '/' {
 		i.App.ActivateCmd("/")
 		return nil
@@ -234,6 +234,8 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		if i.TextView != nil {
 			i.TextView.Clear()
 		}
+	case 'D': // Shift+d
+		i.dumpLogs()
 	case '0':
 		i.setSince("tail")
 	case '1':
@@ -263,6 +265,93 @@ func (i *LogInspector) copyToClipboard() {
 	} else {
 		i.App.AppendFlashSuccess(fmt.Sprintf("copied %d bytes", len(content)))
 	}
+}
+
+func (i *LogInspector) dumpLogs() {
+	if i.ResourceType != "container" {
+		i.App.AppendFlashError("logdump is only available in a container log view")
+		return
+	}
+
+	id := i.ResourceID
+	fileID := id
+	if len(fileID) > 12 {
+		fileID = fileID[:12]
+	}
+	filePrefix := fileID
+	if subject := strings.TrimSpace(i.Subject); subject != "" {
+		filePrefix = sanitizeLogFilenameSubject(subject, fileID)
+	}
+
+	logsDir := config.LogsDir()
+	if logsDir == "" {
+		i.App.AppendFlashError("unable to determine d4s logs directory")
+		return
+	}
+
+	i.App.SetFlashPending(fmt.Sprintf("dumping logs for %s...", id))
+
+	i.App.RunInBackground(func() {
+		if err := os.MkdirAll(logsDir, 0o755); err != nil {
+			i.App.GetTviewApp().QueueUpdateDraw(func() {
+				i.App.AppendFlashError(fmt.Sprintf("failed to create logs dir: %v", err))
+			})
+			return
+		}
+
+		ts := time.Now().Format("20060102-150405")
+		path := filepath.Join(logsDir, fmt.Sprintf("%s.%s.log", filePrefix, ts))
+
+		f, err := os.Create(path)
+		if err != nil {
+			i.App.GetTviewApp().QueueUpdateDraw(func() {
+				i.App.AppendFlashError(fmt.Sprintf("failed to create log file: %v", err))
+			})
+			return
+		}
+
+		dumpErr := i.App.GetDocker().DumpContainerLogs(id, f, true)
+		closeErr := f.Close()
+		if dumpErr == nil {
+			dumpErr = closeErr
+		}
+
+		i.App.GetTviewApp().QueueUpdateDraw(func() {
+			if dumpErr != nil {
+				i.App.AppendFlashError(fmt.Sprintf("failed to dump logs: %v", dumpErr))
+				return
+			}
+			i.App.AppendFlashSuccess(fmt.Sprintf("logs dumped to %s", daocommon.ShortenPath(path)), 10*time.Second)
+		})
+	})
+}
+
+func sanitizeLogFilenameSubject(subject string, fallbackID string) string {
+	subject = strings.TrimSpace(subject)
+	if subject == "" {
+		return fallbackID
+	}
+
+	subject = strings.ReplaceAll(subject, "@", ".")
+
+	var b strings.Builder
+	lastDot := false
+	for _, r := range subject {
+		switch {
+		case unicode.IsLetter(r), unicode.IsDigit(r), r == '-', r == '_', r == '.':
+			b.WriteRune(r)
+			lastDot = r == '.'
+		case !lastDot:
+			b.WriteByte('.')
+			lastDot = true
+		}
+	}
+
+	name := strings.Trim(b.String(), ".")
+	if name == "" {
+		return fallbackID
+	}
+	return name
 }
 
 func (i *LogInspector) setSince(mode string) {
