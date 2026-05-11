@@ -64,7 +64,7 @@ func Inspect(app common.AppController, id string) {
 func GetShortcuts() []string {
 	return []string{
 		common.FormatSCHeader("d", "Describe"),
-		common.FormatSCHeader("c", "Containers"),
+		common.FormatSCHeader("enter", "Containers"),
 		common.FormatSCHeader("a", "Add"),
 		common.FormatSCHeader("shift-p", "Prune"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
@@ -77,8 +77,7 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		DeleteAction(app, v)
 		return nil
 	}
-	switch event.Rune() {
-	case 'c':
+	if event.Key() == tcell.KeyEnter {
 		row, _ := v.Table.GetSelection()
 		if row < 1 || row >= v.Table.GetRowCount() {
 			return nil
@@ -98,6 +97,8 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 			app.SwitchTo(styles.TitleContainers)
 		}
 		return nil
+	}
+	switch event.Rune() {
 	case 'd':
 		app.InspectCurrentSelection()
 		return nil

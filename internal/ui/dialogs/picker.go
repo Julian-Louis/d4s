@@ -16,7 +16,7 @@ type PickerItem struct {
 	Shortcut rune
 }
 
-func ShowPicker(app common.AppController, title string, items []PickerItem, onSelect func(value string)) {
+func ShowPicker(app common.AppController, title string, items []PickerItem, onSelect func(value string), onClose ...func()) {
 	// Center the dialog
 	dialogWidth := 50
 	dialogHeight := len(items) + 4 // Title + borders + padding
@@ -36,6 +36,9 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 	closeModal := func() {
 		pages.RemovePage("picker")
 		tviewApp.SetFocus(pages)
+		for _, fn := range onClose {
+			fn()
+		}
 	}
 
 	for _, item := range items {
