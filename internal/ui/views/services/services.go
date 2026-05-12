@@ -243,9 +243,9 @@ func ViewAction(app common.AppController, v *view.ResourceView) {
 func Logs(app common.AppController, v *view.ResourceView) {
 	id, err := v.GetSelectedID()
 	if err != nil { return }
-	
-	// Open Logs view
-	app.OpenInspector(inspect.NewLogInspectorWithConfig(id, id, "service", app.GetConfig().D4S.Logger))
+	subject := resolveServiceSubject(v, id)
+
+	app.OpenInspector(inspect.NewLogInspectorWithConfig(id, subject, "service", app.GetConfig().D4S.Logger))
 }
 
 func Ps(app common.AppController, v *view.ResourceView) {
