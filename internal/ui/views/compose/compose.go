@@ -83,6 +83,7 @@ func GetShortcuts() []string {
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("e", "Edit"),
 		common.FormatSCHeader("r", "(Re)Start"),
+		common.FormatSCHeader("b", "Build"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 		common.FormatSCHeader("ctrl-k", "Stop"),
 	}
@@ -109,7 +110,10 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 		EditAction(app, v)
 		return nil
 	case 'r':
-		RestartAction(app, v)
+		UpAction(app, v)
+		return nil
+	case 'b':
+		BuildAction(app, v)
 		return nil
 	}
 	
@@ -155,12 +159,6 @@ func NavigateToContainers(app common.AppController, v *view.ResourceView) {
 		// Switch to Containers
 		app.SwitchTo(styles.TitleContainers)
 	}
-}
-
-func RestartAction(app common.AppController, v *view.ResourceView) {
-	app.PerformAction(func(id string) error {
-		return app.GetDocker().RestartComposeProject(id)
-	}, "restarting", styles.ColorStatusOrange)
 }
 
 func StopAction(app common.AppController, v *view.ResourceView) {
@@ -231,6 +229,18 @@ func EditAction(app common.AppController, v *view.ResourceView) {
 	}
 }
 
+func UpAction(app common.AppController, v *view.ResourceView) {
+	app.PerformAction(func(id string) error {
+		return app.GetDocker().UpComposeProject(id)
+	}, "restarting", styles.ColorStatusYellow)
+}
+
+func BuildAction(app common.AppController, v *view.ResourceView) {
+	app.PerformAction(func(id string) error {
+		return app.GetDocker().BuildComposeProject(id)
+	}, "building", styles.ColorStatusYellow)
+}
+
 func DeleteAction(app common.AppController, v *view.ResourceView) {
 	ids, err := v.GetSelectedIDs()
 	if err != nil || len(ids) == 0 {
@@ -271,10 +281,6 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 		// Perform the action with the consistent styling
 		app.PerformAction(batchDeleteAction, "deleting", styles.ColorStatusRed)
 	})
-}
-
-func Restart(app common.AppController, id string) error {
-	return app.GetDocker().RestartComposeProject(id)
 }
 
 func Stop(app common.AppController, id string) error {
