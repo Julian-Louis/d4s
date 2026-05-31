@@ -33,7 +33,7 @@ func (a *App) ExecuteCmd(cmd string) {
 		switchToRoot(styles.TitleNetworks)
 	case "s", "se", "svc", "service", "services":
 		switchToRoot(styles.TitleServices)
-	case "no", "node", "nodes":
+	case "d", "no", "node", "nodes":
 		switchToRoot(styles.TitleNodes)
 	case "p", "cp", "compose", "project", "projects":
 		switchToRoot(styles.TitleCompose)
@@ -47,6 +47,8 @@ func (a *App) ExecuteCmd(cmd string) {
 		switchToRoot(styles.TitleStacks)
 	case "t", "task", "tasks":
 		switchToRoot(styles.TitleTasks)
+	case "o", "ctx", "context", "contexts":
+		switchToRoot(styles.TitleContexts)
 	case "h", "help", "?":
 		a.Pages.AddPage("help", a.Help, true, true)
 	default:

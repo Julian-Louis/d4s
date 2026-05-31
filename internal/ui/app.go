@@ -27,6 +27,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/views/nodes"
 	"github.com/jr-k/d4s/internal/ui/views/configs"
 	"github.com/jr-k/d4s/internal/ui/views/secrets"
+	"github.com/jr-k/d4s/internal/ui/views/contexts"
 	"github.com/jr-k/d4s/internal/ui/views/stacks"
 	"github.com/jr-k/d4s/internal/ui/views/tasks"
 	"github.com/jr-k/d4s/internal/ui/views/services"
@@ -377,6 +378,18 @@ func (a *App) initUI() {
 	}
 	a.Views[styles.TitleConfigs] = vConfigs
 
+	// Contexts
+	vContexts := view.NewResourceView(a, styles.TitleContexts)
+	vContexts.ShortcutsFunc = contexts.GetShortcuts
+	vContexts.FetchFunc = contexts.Fetch
+	vContexts.InspectFunc = contexts.Inspect
+	vContexts.RemoveFunc = contexts.Remove
+	vContexts.Headers = contexts.Headers
+	vContexts.InputHandler = func(event *tcell.EventKey) *tcell.EventKey {
+		return contexts.InputHandler(vContexts, event)
+	}
+	a.Views[styles.TitleContexts] = vContexts
+
 	for title, view := range a.Views {
 		a.Pages.AddPage(title, view.Table, true, false)
 	}
@@ -426,9 +439,10 @@ func (a *App) initUI() {
 			return a.ActiveInspector.InputHandler(event)
 		}
 
-		// Don't intercept global keys if an input modal is open
+		// Don't intercept global keys if a modal/dialog is open
 		frontPage, _ := a.Pages.GetFrontPage()
-		if frontPage == "input" || frontPage == "confirm" {
+		switch frontPage {
+		case "input", "confirm", "form", "picker", "env_editor", "textview", "result":
 			return event
 		}
 
@@ -517,7 +531,7 @@ func (a *App) initUI() {
 		case 'C': // Global Copy View
 			a.PerformCopyView()
 			return nil
-		case 'T': // Global Context Picker
+		case 'O': // Global Context Picker
 			a.ShowContextPicker()
 			a.UpdateShortcuts()
 			return nil
@@ -587,6 +601,8 @@ func (a *App) resolveDefaultView() string {
 		return styles.TitleStacks
 	case "tasks", "task":
 		return styles.TitleTasks
+	case "contexts", "context":
+		return styles.TitleContexts
 	default:
 		return styles.TitleContainers
 	}

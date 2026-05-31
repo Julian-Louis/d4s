@@ -64,11 +64,12 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 		{Title: styles.TitleVolumes, Resource: "volumes", Group: "docker", Shortcuts: []string{"v", "vo", "vol", "volume", "volumes"}},
 		{Title: styles.TitleNetworks, Resource: "networks", Group: "docker", Shortcuts: []string{"n", "ne", "net", "network", "networks"}},
 		{Title: styles.TitleServices, Resource: "services", Group: "swarm", Shortcuts: []string{"s", "se", "svc", "service", "services"}},
-		{Title: styles.TitleNodes, Resource: "nodes", Group: "swarm", Shortcuts: []string{"no", "node", "nodes"}},
+		{Title: styles.TitleNodes, Resource: "nodes", Group: "swarm", Shortcuts: []string{"d", "no", "node", "nodes"}},
 		{Title: styles.TitleSecrets, Resource: "secrets", Group: "swarm", Shortcuts: []string{"x", "sec", "secret", "secrets"}},
 		{Title: styles.TitleConfigs, Resource: "configs", Group: "swarm", Shortcuts: []string{"f", "cfg", "config", "configs"}},
 		{Title: styles.TitleStacks, Resource: "stacks", Group: "swarm", Shortcuts: []string{"k", "st", "stack", "stacks"}},
 		{Title: styles.TitleTasks, Resource: "tasks", Group: "swarm", Shortcuts: []string{"t", "task", "tasks"}},
+		{Title: styles.TitleContexts, Resource: "contexts", Group: "docker", Shortcuts: []string{"o", "ctx", "context", "contexts"}},
 		{Title: styles.TitleCompose, Resource: "compose", Group: "compose", Shortcuts: []string{"p", "cp", "compose", "project", "projects"}},
 	}
 

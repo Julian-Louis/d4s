@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -589,6 +590,40 @@ func (d *DockerClient) DeployStack(name string, composeFile string) error {
 
 func (d *DockerClient) StackPS(name string) (string, error) {
 	return d.Stack.PS(name)
+}
+
+func (d *DockerClient) InspectContext(name string) (string, error) {
+	cmd := exec.Command("docker", "context", "inspect", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("error inspecting context: %v, output: %s", err, string(output))
+	}
+	return string(output), nil
+}
+
+func (d *DockerClient) RemoveContext(name string) error {
+	cmd := exec.Command("docker", "context", "rm", name)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error removing context: %v, output: %s", err, string(output))
+	}
+	return nil
+}
+
+func (d *DockerClient) CreateContext(name, description, host string) error {
+	args := []string{"context", "create", name}
+	if description != "" {
+		args = append(args, "--description", description)
+	}
+	if host != "" {
+		args = append(args, "--docker", fmt.Sprintf("host=%s", host))
+	}
+	cmd := exec.Command("docker", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error creating context: %v, output: %s", err, string(output))
+	}
+	return nil
 }
 
 func (d *DockerClient) ListTasks() ([]common.Resource, error) {

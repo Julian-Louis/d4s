@@ -173,6 +173,7 @@ func ShowFormWithDescription(app common.AppController, title, description string
 		SetBackgroundColorActivated(styles.ColorAccent).
 		SetLabelColorActivated(styles.ColorBlack)
 	confirmBtn.SetBackgroundColor(styles.ColorSelectBg)
+	confirmBtn.SetStyle(tcell.StyleDefault.Foreground(styles.ColorBlack).Background(styles.ColorIdle))
 
 	confirmRow := tview.NewFlex().
 		SetDirection(tview.FlexColumn).

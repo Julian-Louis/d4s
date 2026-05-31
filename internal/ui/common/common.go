@@ -73,6 +73,9 @@ type AppController interface {
 	RunInBackground(task func())
 	SetPaused(paused bool)
 
+	// Context Management
+	SetDefaultContext(contextName string)
+
 	// Refactoring: Auto Refresh Control
 	StartAutoRefresh()
 	StopAutoRefresh()

@@ -117,6 +117,7 @@ var availableCommands = []string{
 	"configs",
 	"stacks",
 	"tasks",
+	"contexts",
 	"help",
 	"aliases",
 	"q",
@@ -130,6 +131,8 @@ var availableCommands = []string{
 	"a",
 	"k",
 	"t",
+	"o",
+	"d",
 }
 
 // findBestSuggestion finds the best matching command for autocompletion
