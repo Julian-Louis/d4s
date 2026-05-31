@@ -31,6 +31,7 @@ import (
 	"github.com/jr-k/d4s/internal/dao/docker/volume"
 	"github.com/jr-k/d4s/internal/dao/swarm/node"
 	"github.com/jr-k/d4s/internal/dao/swarm/service"
+	"github.com/jr-k/d4s/internal/dao/swarm/task"
 )
 
 // Re-export types for backward compatibility / convenience
@@ -45,6 +46,7 @@ type Node = node.Node
 type Secret = secret.Secret
 type Config = dconfig.Config
 type Stack = stack.Stack
+type Task = task.Task
 type ComposeProject = compose.ComposeProject
 
 // Cached container info for instant scoped queries (drill-down)
@@ -75,6 +77,7 @@ type DockerClient struct {
 	Secret    *secret.Manager
 	Config    *dconfig.Manager
 	Stack     *stack.Manager
+	Task      *task.Manager
 	Compose   *compose.Manager
 
 	// Resource cache for fast scoped queries and stale-while-revalidate
@@ -117,6 +120,7 @@ func NewDockerClient(contextName string, apiTimeout time.Duration, defaultContex
 		Secret:           secret.NewManager(cli, ctx),
 		Config:           dconfig.NewManager(cli, ctx),
 		Stack:            stack.NewManager(cli, ctx),
+		Task:             task.NewManager(cli, ctx),
 		Compose:          compose.NewManager(cli, ctx),
 		containerInfoMap: make(map[string]containerInfoCache),
 		refreshing:       make(map[string]bool),
@@ -585,6 +589,18 @@ func (d *DockerClient) DeployStack(name string, composeFile string) error {
 
 func (d *DockerClient) StackPS(name string) (string, error) {
 	return d.Stack.PS(name)
+}
+
+func (d *DockerClient) ListTasks() ([]common.Resource, error) {
+	return d.Task.List()
+}
+
+func (d *DockerClient) ListTasksForServiceResource(serviceID string) ([]common.Resource, error) {
+	return d.Task.ListForService(serviceID)
+}
+
+func (d *DockerClient) ListTasksForNodeResource(nodeID string) ([]common.Resource, error) {
+	return d.Task.ListForNode(nodeID)
 }
 
 func (d *DockerClient) StopComposeProject(projectName string) error {

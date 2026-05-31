@@ -45,6 +45,8 @@ func (a *App) ExecuteCmd(cmd string) {
 		switchToRoot(styles.TitleConfigs)
 	case "k", "st", "stack", "stacks":
 		switchToRoot(styles.TitleStacks)
+	case "t", "task", "tasks":
+		switchToRoot(styles.TitleTasks)
 	case "h", "help", "?":
 		a.Pages.AddPage("help", a.Help, true, true)
 	default:

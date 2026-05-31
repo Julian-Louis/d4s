@@ -62,6 +62,18 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 				}
 			}
 			return scopedData, nil
+		} else if scope.Type == "task" {
+			var scopedData []dao.Resource
+			for _, res := range data {
+				if c, ok := res.(dao.Container); ok {
+					if c.ID == scope.Value ||
+						strings.HasPrefix(c.ID, scope.Value) ||
+						strings.HasPrefix(scope.Value, c.ID) {
+						scopedData = append(scopedData, res)
+					}
+				}
+			}
+			return scopedData, nil
 		} else if scope.Type == "image" {
 			var scopedData []dao.Resource
 			for _, res := range data {

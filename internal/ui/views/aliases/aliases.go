@@ -1,6 +1,8 @@
 package aliases
 
 import (
+	"strings"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao"
 	"github.com/jr-k/d4s/internal/ui/common"
@@ -8,12 +10,13 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"RESOURCE", "GROUP"}
+var Headers = []string{"RESOURCE", "GROUP", "SHORTCUTS"}
 
 type Alias struct {
-	Title    string // The view title/key (page name)
-	Resource string // Display name
-	Group    string // Group name
+	Title     string   // The view title/key (page name)
+	Resource  string   // Display name
+	Group     string   // Group name
+	Shortcuts []string // Command-line shortcuts (without the leading ':')
 }
 
 // Ensure Alias implements dao.Resource
@@ -24,7 +27,7 @@ func (a Alias) GetID() string {
 }
 
 func (a Alias) GetCells() []string {
-	return []string{a.Resource, a.Group}
+	return []string{a.Resource, a.Group, strings.Join(a.Shortcuts, ", ")}
 }
 
 func (a Alias) GetStatusColor() (tcell.Color, tcell.Color) {
@@ -37,6 +40,8 @@ func (a Alias) GetColumnValue(columnName string) string {
 		return a.Resource
 	case "GROUP":
 		return a.Group
+	case "SHORTCUTS":
+		return strings.Join(a.Shortcuts, ", ")
 	}
 	return ""
 }
@@ -50,19 +55,21 @@ func (a Alias) GetDefaultSortColumn() string {
 }
 
 func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, error) {
-	// Static list of aliases
+	// Static list of aliases. Shortcuts mirror the cases handled in
+	// (*App).ExecuteCmd; keep them in sync when adding new commands.
 	aliases := []Alias{
-		{Title: styles.TitleAliases, Resource: "aliases", Group: "internal"},
-		{Title: styles.TitleContainers, Resource: "containers", Group: "docker"},
-		{Title: styles.TitleImages, Resource: "images", Group: "docker"},
-		{Title: styles.TitleVolumes, Resource: "volumes", Group: "docker"},
-		{Title: styles.TitleNetworks, Resource: "networks", Group: "docker"},
-		{Title: styles.TitleServices, Resource: "services", Group: "swarm"},
-		{Title: styles.TitleNodes, Resource: "nodes", Group: "swarm"},
-		{Title: styles.TitleSecrets, Resource: "secrets", Group: "swarm"},
-		{Title: styles.TitleConfigs, Resource: "configs", Group: "swarm"},
-		{Title: styles.TitleStacks, Resource: "stacks", Group: "swarm"},
-		{Title: styles.TitleCompose, Resource: "compose", Group: "compose"},
+		{Title: styles.TitleAliases, Resource: "aliases", Group: "internal", Shortcuts: []string{"a", "al", "alias", "aliases"}},
+		{Title: styles.TitleContainers, Resource: "containers", Group: "docker", Shortcuts: []string{"c", "co", "con", "container", "containers"}},
+		{Title: styles.TitleImages, Resource: "images", Group: "docker", Shortcuts: []string{"i", "im", "img", "image", "images"}},
+		{Title: styles.TitleVolumes, Resource: "volumes", Group: "docker", Shortcuts: []string{"v", "vo", "vol", "volume", "volumes"}},
+		{Title: styles.TitleNetworks, Resource: "networks", Group: "docker", Shortcuts: []string{"n", "ne", "net", "network", "networks"}},
+		{Title: styles.TitleServices, Resource: "services", Group: "swarm", Shortcuts: []string{"s", "se", "svc", "service", "services"}},
+		{Title: styles.TitleNodes, Resource: "nodes", Group: "swarm", Shortcuts: []string{"no", "node", "nodes"}},
+		{Title: styles.TitleSecrets, Resource: "secrets", Group: "swarm", Shortcuts: []string{"x", "sec", "secret", "secrets"}},
+		{Title: styles.TitleConfigs, Resource: "configs", Group: "swarm", Shortcuts: []string{"f", "cfg", "config", "configs"}},
+		{Title: styles.TitleStacks, Resource: "stacks", Group: "swarm", Shortcuts: []string{"k", "st", "stack", "stacks"}},
+		{Title: styles.TitleTasks, Resource: "tasks", Group: "swarm", Shortcuts: []string{"t", "task", "tasks"}},
+		{Title: styles.TitleCompose, Resource: "compose", Group: "compose", Shortcuts: []string{"p", "cp", "compose", "project", "projects"}},
 	}
 
 	var resources []dao.Resource

@@ -2,6 +2,7 @@ package stacks
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao"
@@ -84,11 +85,11 @@ func DeleteAction(app common.AppController, v *view.ResourceView) {
 }
 
 func Inspect(app common.AppController, id string) {
-	inspector := inspect.NewTextInspector("PS stack", id, fmt.Sprintf(" [%s]Loading stack tasks...\n", styles.TagAccent), "text")
+	inspector := inspect.NewTextInspector("Stack ps", id, fmt.Sprintf(" [%s]Loading stack tasks...\n", styles.TagAccent), "text")
 	app.OpenInspector(inspector)
 
 	app.RunInBackground(func() {
-		content, err := app.GetDocker().StackPS(id)
+		tasks, err := app.GetDocker().ListTasks()
 		if err != nil {
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				inspector.Viewer.Update(fmt.Sprintf("Error: %v", err), "text")
@@ -96,8 +97,41 @@ func Inspect(app common.AppController, id string) {
 			return
 		}
 
+		nodes, _ := app.GetDocker().ListNodes()
+		nodeNames := make(map[string]string)
+		for _, n := range nodes {
+			if node, ok := n.(dao.Node); ok {
+				nodeNames[node.ID] = node.Hostname
+			}
+		}
+
+		var lines []string
+		var filtered []dao.Task
+		for _, t := range tasks {
+			if task, ok := t.(dao.Task); ok {
+				if strings.HasPrefix(task.Name, id+"_") || strings.HasPrefix(task.Name, id+".") {
+					filtered = append(filtered, task)
+				}
+			}
+		}
+
+		if len(filtered) == 0 {
+			lines = append(lines, "# No tasks for this stack")
+		} else {
+			lines = append(lines, fmt.Sprintf("%-14s %-30s %-20s %-15s %-15s %s", "ID", "NAME", "NODE", "DESIRED STATE", "CURRENT STATE", "ERROR"))
+			lines = append(lines, strings.Repeat("-", 120))
+
+			for _, t := range filtered {
+				taskID := t.ID
+				if len(taskID) > 12 {
+					taskID = taskID[:12]
+				}
+				lines = append(lines, fmt.Sprintf("%-14s %-30s %-20s %-15s %-15s %s", taskID, t.Name, t.Node, t.DesiredState, t.CurrentState, t.Error))
+			}
+		}
+
 		app.GetTviewApp().QueueUpdateDraw(func() {
-			inspector.Viewer.Update(content, "text")
+			inspector.Viewer.Update(strings.Join(lines, "\n"), "text")
 		})
 	})
 }

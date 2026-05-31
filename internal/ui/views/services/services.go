@@ -162,6 +162,7 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 func GetShortcuts() []string {
 	return []string{
 		common.FormatSCHeader("e", "Env"),
+		common.FormatSCHeader("t", "Tasks"),
 		common.FormatSCHeader("x", "Secrets"),
 		common.FormatSCHeader("f", "Configs"),
 		common.FormatSCHeader("l", "Logs"),
@@ -232,6 +233,9 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'z':
 		ScaleZero(app, v)
 		return nil
+	case 't':
+		TasksAction(app, v)
+		return nil
 	case 'd':
 		app.InspectCurrentSelection()
 		return nil
@@ -241,14 +245,11 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 }
 
 func ViewAction(app common.AppController, v *view.ResourceView) {
-	// Filter containers by this service
 	id, err := v.GetSelectedID()
 	if err != nil { return }
 	
 	r, _ := v.Table.GetSelection()
-	// Headers: "ID", "NAME", ...
-	// Name is column 1
-	name := id // Fallback
+	name := id
 	nameCell := v.Table.GetCell(r, 1)
 	if nameCell != nil {
 		name = nameCell.Text
@@ -264,6 +265,29 @@ func ViewAction(app common.AppController, v *view.ResourceView) {
 	})
 	
 	app.SwitchTo(styles.TitleContainers)
+}
+
+func TasksAction(app common.AppController, v *view.ResourceView) {
+	id, err := v.GetSelectedID()
+	if err != nil { return }
+
+	r, _ := v.Table.GetSelection()
+	name := id
+	nameCell := v.Table.GetCell(r, 1)
+	if nameCell != nil {
+		name = nameCell.Text
+	}
+
+	trimSpaceLeftRightName := strings.TrimSpace(name)
+
+	app.SetActiveScope(&common.Scope{
+		Type:       "service",
+		Value:      trimSpaceLeftRightName,
+		Label:      trimSpaceLeftRightName,
+		OriginView: styles.TitleServices,
+	})
+
+	app.SwitchTo(styles.TitleTasks)
 }
 
 func Logs(app common.AppController, v *view.ResourceView) {

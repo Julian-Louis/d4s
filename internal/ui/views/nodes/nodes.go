@@ -20,6 +20,8 @@ func Fetch(app common.AppController, v *view.ResourceView) ([]dao.Resource, erro
 
 func GetShortcuts() []string {
 	return []string{
+		common.FormatSCHeader("enter", "Services"),
+		common.FormatSCHeader("t", "Tasks"),
 		common.FormatSCHeader("d", "Describe"),
 		common.FormatSCHeader("ctrl-d", "Delete"),
 	}
@@ -76,9 +78,11 @@ func InputHandler(v *view.ResourceView, event *tcell.EventKey) *tcell.EventKey {
 	case 'd':
 		app.InspectCurrentSelection()
 		return nil
+	case 't':
+		NavigateToTasks(app, v)
+		return nil
 	}
-	
-	// Navigation to Services
+
 	if event.Key() == tcell.KeyEnter {
 		NavigateToServices(app, v)
 		return nil
@@ -109,6 +113,28 @@ func NavigateToServices(app common.AppController, v *view.ResourceView) {
 		
 		// Switch to Services
 		app.SwitchTo(styles.TitleServices)
+	}
+}
+
+func NavigateToTasks(app common.AppController, v *view.ResourceView) {
+	row, _ := v.Table.GetSelection()
+	if row > 0 && row <= len(v.Data) {
+		res := v.Data[row-1]
+		nodeID := res.GetID()
+
+		label := nodeID
+		if cells := res.GetCells(); len(cells) > 1 {
+			label = cells[1]
+		}
+
+		app.SetActiveScope(&common.Scope{
+			Type:       "node",
+			Value:      nodeID,
+			Label:      label,
+			OriginView: styles.TitleNodes,
+		})
+
+		app.SwitchTo(styles.TitleTasks)
 	}
 }
 
