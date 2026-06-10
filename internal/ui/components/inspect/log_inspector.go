@@ -33,6 +33,7 @@ type LogInspector struct {
 
 	// Settings
 	AutoScroll bool
+	Fullscreen bool
 	Timestamps bool
 	Wrap       bool // Restored
 	filter     string
@@ -85,11 +86,8 @@ func (i *LogInspector) GetPrimitive() tview.Primitive {
 }
 
 func (i *LogInspector) GetTitle() string {
-	// Standard Title on first line
-	title := FormatInspectorTitle("Logs", i.Subject, "", i.filter, 0, 0)
-	// Remove empty mode brackets from standard title if needed
-	title = strings.ReplaceAll(title, fmt.Sprintf(" [[%s][%s]]", styles.TagFg, styles.TagCyan), "")
-	return title
+	sinceColored := fmt.Sprintf("[%s]%s", styles.TagInfo, strings.ToLower(i.sinceLabel))
+	return FormatInspectorTitle("Logs", i.Subject, sinceColored, i.filter, 0, 0)
 }
 
 func (i *LogInspector) GetStatus() string {
@@ -103,9 +101,9 @@ func (i *LogInspector) GetStatus() string {
 
 	parts := []string{}
 	parts = append(parts, fmtStatus("[::b]Autoscroll[::-]", i.AutoScroll))
+	parts = append(parts, fmtStatus("[::b]Fullscreen[::-]", i.Fullscreen))
 	parts = append(parts, fmtStatus("[::b]Timestamps[::-]", i.Timestamps))
 	parts = append(parts, fmtStatus("[::b]Wrap[::-]", i.Wrap))
-	parts = append(parts, fmt.Sprintf("[%s::b]Since:[-::-][%s]%s[-]", styles.TagSCKey, styles.TagFg, i.sinceLabel))
 
 	return strings.Join(parts, "     ")
 }
@@ -117,8 +115,8 @@ func (i *LogInspector) GetShortcuts() []string {
 	}
 
 	altShortcuts := []string{
-		altSC("0", "Tail"),
-		altSC("1", "Head"),
+		altSC("0", "tail"),
+		altSC("1", "head"),
 		altSC("2", "1m"),
 		altSC("3", "5m"),
 		altSC("4", "15m"),
@@ -139,12 +137,14 @@ func (i *LogInspector) GetShortcuts() []string {
 	}
 
 	return append(altShortcuts,
-		common.FormatSCHeader("s", "Scroll"),
-		common.FormatSCHeader("w", "Wrap"),
-		common.FormatSCHeader("t", "Time"),
-		common.FormatSCHeader("c", "Copy"),
 		common.FormatSCHeader("shift-c", "Clear"),
-		common.FormatSCHeader("shift-d", "Dump"),
+		common.FormatSCHeader("c", "Copy"),
+		common.FormatSCHeader("m", "Mark"),
+		common.FormatSCHeader("ctrl-s", "Save"),
+		common.FormatSCHeader("s", "Toggle AutoScroll"),
+		common.FormatSCHeader("f", "Toggle FullScreen"),
+		common.FormatSCHeader("t", "Toggle Timestamp"),
+		common.FormatSCHeader("w", "Toggle Wrap"),
 	)
 }
 
@@ -191,6 +191,9 @@ func (i *LogInspector) OnUnmount() {
 	if i.cancelFunc != nil {
 		i.cancelFunc()
 	}
+	if i.Fullscreen {
+		i.App.SetFullscreen(false)
+	}
 }
 
 func (i *LogInspector) ApplyFilter(filter string) {
@@ -202,6 +205,11 @@ func (i *LogInspector) ApplyFilter(filter string) {
 func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 	if event.Key() == tcell.KeyEsc {
 		i.App.CloseInspector()
+		return nil
+	}
+
+	if event.Key() == tcell.KeyCtrlS {
+		i.dumpLogs()
 		return nil
 	}
 
@@ -217,6 +225,13 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		if i.AutoScroll && i.TextView != nil {
 			i.TextView.ScrollToEnd()
 		}
+	case 'f':
+		i.Fullscreen = !i.Fullscreen
+		i.App.SetFullscreen(i.Fullscreen)
+		if i.Flex != nil {
+			i.Flex.SetBorder(!i.Fullscreen)
+		}
+		i.updateTitle()
 	case 'w':
 		i.Wrap = !i.Wrap
 		i.updateTitle()
@@ -228,14 +243,14 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 		i.Timestamps = !i.Timestamps
 		i.updateTitle()
 		i.startStreaming() // Restart with new setting
+	case 'm':
+		i.insertMark()
 	case 'c':
 		i.copyToClipboard()
 	case 'C': // Shift+c
 		if i.TextView != nil {
 			i.TextView.Clear()
 		}
-	case 'D': // Shift+d
-		i.dumpLogs()
 	case '0':
 		i.setSince("tail")
 	case '1':
@@ -253,6 +268,18 @@ func (i *LogInspector) InputHandler(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	return event
+}
+
+func (i *LogInspector) insertMark() {
+	if i.TextView == nil {
+		return
+	}
+	_, _, w, _ := i.TextView.GetInnerRect()
+	if w < 1 {
+		w = 120
+	}
+	mark := fmt.Sprintf("[%s]%s[-]", styles.TagIdle, strings.Repeat("─", w))
+	fmt.Fprintf(i.TextView, "\n%s\n", mark)
 }
 
 func (i *LogInspector) copyToClipboard() {
@@ -593,12 +620,10 @@ func (i *LogInspector) startStreaming() {
 							}
 						}
 
-						// Color the prefix, reset, keep pipe, print body
-						line = fmt.Sprintf("[%s]%s[-]|%s", col, prefix, body)
-					} else {
-						// Fallback for lines without pipe (e.g. "Attaching to...")
-						line = " [" + styles.TagIdle + "]" + line
-					}
+						line = fmt.Sprintf("[%s::b]%s[-::-]|[%s]%s", col, prefix, styles.TagIdle, body)
+				} else {
+					line = " [" + styles.TagIdle + "]" + line
+				}
 				} else {
 					// Standard Container/Service Logs
 					// Timestamp Coloring

@@ -704,6 +704,24 @@ func (a *App) SetCmdLineVisible(visible bool) {
 	a.Layout.ResizeItem(a.CmdLine.View, size, 0)
 }
 
+func (a *App) SetFullscreen(enabled bool) {
+	if enabled {
+		if !a.Cfg.D4S.UI.Headless {
+			a.Layout.ResizeItem(a.Header.View, 0, 0)
+		}
+		if !a.Cfg.D4S.UI.Crumbsless {
+			a.Layout.ResizeItem(a.Flash.View, 0, 0)
+		}
+	} else {
+		if !a.Cfg.D4S.UI.Headless {
+			a.Layout.ResizeItem(a.Header.View, 7, 1)
+		}
+		if !a.Cfg.D4S.UI.Crumbsless {
+			a.Layout.ResizeItem(a.Flash.View, 2, 1)
+		}
+	}
+}
+
 func (a *App) ScheduleViewHighlight(viewName string, match func(dao.Resource) bool, bg, fg tcell.Color, duration time.Duration) {
 	if match == nil || duration <= 0 {
 		return

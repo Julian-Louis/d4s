@@ -61,6 +61,7 @@ type AppController interface {
 
 	// Layout management
 	SetCmdLineVisible(visible bool)
+	SetFullscreen(enabled bool)
 	UpdateShortcuts()
 
 	ScheduleViewHighlight(viewName string, match func(dao.Resource) bool, bg, fg tcell.Color, duration time.Duration)
