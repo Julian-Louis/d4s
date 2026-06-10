@@ -15,12 +15,22 @@ import (
 )
 
 type Manager struct {
-	cli *client.Client
-	ctx context.Context
+	cli         *client.Client
+	ctx         context.Context
+	contextName string
 }
 
-func NewManager(cli *client.Client, ctx context.Context) *Manager {
-	return &Manager{cli: cli, ctx: ctx}
+func NewManager(cli *client.Client, ctx context.Context, contextName string) *Manager {
+	return &Manager{cli: cli, ctx: ctx, contextName: contextName}
+}
+
+// dockerCmd builds a docker CLI invocation pinned to the manager's
+// docker context, so commands hit the right daemon (e.g. over SSH).
+func (m *Manager) dockerCmd(args ...string) *exec.Cmd {
+	if m.contextName != "" && m.contextName != "default" {
+		args = append([]string{"--context", m.contextName}, args...)
+	}
+	return exec.Command("docker", args...)
 }
 
 type Stack struct {
@@ -123,7 +133,7 @@ func (m *Manager) List() ([]common.Resource, error) {
 }
 
 func (m *Manager) Remove(name string) error {
-	cmd := exec.Command("docker", "stack", "rm", name)
+	cmd := m.dockerCmd("stack", "rm", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error removing stack: %v, output: %s", err, string(output))
@@ -132,7 +142,7 @@ func (m *Manager) Remove(name string) error {
 }
 
 func (m *Manager) Deploy(name string, composeFile string) error {
-	cmd := exec.Command("docker", "stack", "deploy", "-c", composeFile, name)
+	cmd := m.dockerCmd("stack", "deploy", "-c", composeFile, name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error deploying stack: %v, output: %s", err, string(output))
@@ -141,7 +151,7 @@ func (m *Manager) Deploy(name string, composeFile string) error {
 }
 
 func (m *Manager) PS(name string) (string, error) {
-	cmd := exec.Command("docker", "stack", "ps", name, "--no-trunc")
+	cmd := m.dockerCmd("stack", "ps", name, "--no-trunc")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error listing stack tasks: %v, output: %s", err, string(output))

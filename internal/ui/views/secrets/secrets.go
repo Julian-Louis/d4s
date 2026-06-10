@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -173,7 +172,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 	app.RunInBackground(func() {
 		serviceName := fmt.Sprintf("d4s-secret-decode-%d", time.Now().UnixNano())
 
-		createCmd := exec.Command("docker", "service", "create",
+		createCmd := common.DockerCommand(app, "service", "create",
 			"--name", serviceName,
 			"--secret", name,
 			"--restart-condition", "none",
@@ -190,7 +189,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 		}
 
 		defer func() {
-			exec.Command("docker", "service", "rm", serviceName).Run()
+			common.DockerCommand(app, "service", "rm", serviceName).Run()
 		}()
 
 		var content string
@@ -199,7 +198,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 		for i := 0; i < 30; i++ {
 			time.Sleep(1 * time.Second)
 
-			psCmd := exec.Command("docker", "service", "ps", "--format", "{{.CurrentState}}", "--no-trunc", serviceName)
+			psCmd := common.DockerCommand(app, "service", "ps", "--format", "{{.CurrentState}}", "--no-trunc", serviceName)
 			psOut, err := psCmd.Output()
 			if err != nil {
 				continue
@@ -207,7 +206,7 @@ func Decode(app common.AppController, v *view.ResourceView) {
 
 			state := strings.TrimSpace(string(psOut))
 			if strings.Contains(state, "Complete") {
-				logsCmd := exec.Command("docker", "service", "logs", "--raw", serviceName)
+				logsCmd := common.DockerCommand(app, "service", "logs", "--raw", serviceName)
 				logOut, err := logsCmd.Output()
 				if err != nil {
 					decodeErr = fmt.Errorf("failed to read logs: %v", err)

@@ -106,7 +106,9 @@ func (a *App) RefreshCurrentView() {
 	}
 
 	// Modal check logic needs specific naming convention or check
-	if page == "help" || page == "logs" || page == "confirm" || page == "result" || page == "input" || page == "textview" {
+	switch page {
+	case "help", "logs", "confirm", "result", "input", "textview",
+		"form", "picker", "portforward", "env_editor":
 		return
 	}
 	
@@ -127,6 +129,13 @@ func (a *App) RefreshCurrentView() {
 		if a.IsPaused() {
 			return
 		}
+
+		// Skip this tick if the previous fetch is still in flight
+		// (slow SSH transport): avoids piling up redundant API calls.
+		if !v.TryAcquireFetch() {
+			return
+		}
+		defer v.ReleaseFetch()
 
 		var err error
 		var data []dao.Resource
@@ -229,6 +238,14 @@ func (a *App) RefreshCurrentView() {
 func (a *App) preloadViews() {
 	initialView := a.resolveDefaultView()
 
+	// Over SSH, each concurrent connection spawns an ssh process; limit
+	// parallelism to avoid tripping sshd MaxStartups and hogging the pool.
+	concurrency := len(a.Views)
+	if a.Docker != nil && a.Docker.IsSSHContext() {
+		concurrency = 2
+	}
+	sem := make(chan struct{}, concurrency)
+
 	for title, v := range a.Views {
 		if title == initialView {
 			continue // Already being refreshed by StartAutoRefresh
@@ -238,6 +255,9 @@ func (a *App) preloadViews() {
 		}
 
 		go func(title string, v *view.ResourceView) {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			data, err := v.FetchFunc(a, v)
 			if err != nil {
 				return // Silently ignore preload errors

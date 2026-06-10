@@ -34,6 +34,7 @@ import (
 	"github.com/jr-k/d4s/internal/dao/swarm/node"
 	"github.com/jr-k/d4s/internal/dao/swarm/service"
 	"github.com/jr-k/d4s/internal/secrets"
+	"github.com/jr-k/d4s/internal/sshutil"
 	"github.com/jr-k/d4s/internal/dao/swarm/task"
 )
 
@@ -95,6 +96,8 @@ type DockerClient struct {
 	volumeCache         []common.Resource             // Raw Volume.List() results (for scoped queries)
 	enrichedVolumeCache []common.Resource             // Full ListVolumes() result (with UsedBy)
 	networkCache        []common.Resource             // Network.List() results
+	imageCache          []common.Resource             // Image.List() results
+	serviceCache        []common.Resource             // Service.List() results
 	containerInfoMap    map[string]containerInfoCache // containerID -> mount/network info
 
 	// Guard against concurrent async refreshes
@@ -104,6 +107,18 @@ type DockerClient struct {
 	// Cached SSH context check
 	isSSHOnce sync.Once
 	isSSH     bool
+
+	// One-time stats throttling setup for SSH contexts
+	statsThrottleOnce sync.Once
+
+	// One-time compose exec target setup (local vs remote SSH host)
+	composeTargetOnce sync.Once
+
+	// Host stats cache (cli.Info is a remote round-trip and its data
+	// barely changes; refreshed at most once per minute)
+	hostStatsMu sync.Mutex
+	hostStats   *common.HostStats
+	hostStatsAt time.Time
 }
 
 func NewDockerClient(contextName string, apiTimeout time.Duration, defaultContext string) (*DockerClient, error) {
@@ -133,7 +148,7 @@ func NewDockerClient(contextName string, apiTimeout time.Duration, defaultContex
 		Node:             node.NewManager(cli, ctx),
 		Secret:           secret.NewManager(cli, ctx),
 		Config:           dconfig.NewManager(cli, ctx),
-		Stack:            stack.NewManager(cli, ctx),
+		Stack:            stack.NewManager(cli, ctx, ctxName),
 		Task:             task.NewManager(cli, ctx),
 		Compose:          compose.NewManager(cli, ctx),
 		containerInfoMap: make(map[string]containerInfoCache),
@@ -256,7 +271,10 @@ func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client
 		} else {
 			secrets.ApplyAskpassEnv("")
 		}
-		helper, err = connhelper.GetConnectionHelperWithSSHOpts(ep.Host, creds.SSHArgs())
+		// ControlMaster multiplexes every dial-stdio over one SSH
+		// connection: single handshake, no sshd MaxStartups storms.
+		sshFlags := append(sshutil.ControlMasterArgs(), creds.SSHArgs()...)
+		helper, err = connhelper.GetConnectionHelperWithSSHOpts(ep.Host, sshFlags)
 	} else {
 		helper, err = connhelper.GetConnectionHelper(ep.Host)
 	}
@@ -269,6 +287,11 @@ func loadSpecificContext(targetCtx string, logger *log.Logger, baseOpts []client
 			client.WithHTTPClient(&http.Client{
 				Transport: &http.Transport{
 					DialContext: helper.Dialer,
+					// Each new connection spawns an ssh process; keep a
+					// large warm pool alive across refresh ticks.
+					MaxIdleConns:        16,
+					MaxIdleConnsPerHost: 16,
+					IdleConnTimeout:     5 * time.Minute,
 				},
 			}),
 			client.WithHost(helper.Host),
@@ -320,11 +343,38 @@ func newTLSClient(tlsData *clicontext.TLSData, skipVerify bool, timeout time.Dur
 }
 
 func (d *DockerClient) ListContainers() ([]common.Resource, error) {
+	d.statsThrottleOnce.Do(func() {
+		if d.IsSSHContext() {
+			d.Container.SetMinStatsInterval(10 * time.Second)
+		}
+	})
 	return d.Container.List()
 }
 
+// ListImages returns cached results immediately if available, then
+// refreshes in the background (stale-while-revalidate).
 func (d *DockerClient) ListImages() ([]common.Resource, error) {
-	return d.Image.List()
+	d.cacheMu.RLock()
+	cached := d.imageCache
+	d.cacheMu.RUnlock()
+
+	if cached != nil {
+		d.asyncRefresh("images", func() { d.fetchImages() })
+		return cached, nil
+	}
+
+	return d.fetchImages()
+}
+
+func (d *DockerClient) fetchImages() ([]common.Resource, error) {
+	res, err := d.Image.List()
+	if err != nil {
+		return nil, err
+	}
+	d.cacheMu.Lock()
+	d.imageCache = res
+	d.cacheMu.Unlock()
+	return res, nil
 }
 
 // ListVolumes returns cached enriched volumes immediately if available,
@@ -464,8 +514,30 @@ func (d *DockerClient) asyncRefresh(key string, refresh func()) {
 	}()
 }
 
+// ListServices returns cached results immediately if available, then
+// refreshes in the background (stale-while-revalidate).
 func (d *DockerClient) ListServices() ([]common.Resource, error) {
-	return d.Service.List()
+	d.cacheMu.RLock()
+	cached := d.serviceCache
+	d.cacheMu.RUnlock()
+
+	if cached != nil {
+		d.asyncRefresh("services", func() { d.fetchServices() })
+		return cached, nil
+	}
+
+	return d.fetchServices()
+}
+
+func (d *DockerClient) fetchServices() ([]common.Resource, error) {
+	res, err := d.Service.List()
+	if err != nil {
+		return nil, err
+	}
+	d.cacheMu.Lock()
+	d.serviceCache = res
+	d.cacheMu.Unlock()
+	return res, nil
 }
 
 func (d *DockerClient) ListNodes() ([]common.Resource, error) {
@@ -623,6 +695,16 @@ func (d *DockerClient) StackPS(name string) (string, error) {
 	return d.Stack.PS(name)
 }
 
+// dockerCmd builds a docker CLI invocation pinned to this client's
+// context, so commands hit the right daemon (e.g. over SSH) instead of
+// whatever context the local docker CLI currently points to.
+func (d *DockerClient) dockerCmd(args ...string) *exec.Cmd {
+	if d.ContextName != "" && d.ContextName != "default" {
+		args = append([]string{"--context", d.ContextName}, args...)
+	}
+	return exec.Command("docker", args...)
+}
+
 func (d *DockerClient) InspectContext(name string) (string, error) {
 	cmd := exec.Command("docker", "context", "inspect", name)
 	output, err := cmd.CombinedOutput()
@@ -679,7 +761,7 @@ func (d *DockerClient) UpdateContext(name, description, host string) error {
 }
 
 func (d *DockerClient) ListPlugins() ([]PluginInfo, error) {
-	cmd := exec.Command("docker", "plugin", "ls", "--format", "{{json .}}")
+	cmd := d.dockerCmd("plugin", "ls", "--format", "{{json .}}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("error listing plugins: %v, output: %s", err, string(output))
@@ -711,7 +793,7 @@ func (d *DockerClient) ListPlugins() ([]PluginInfo, error) {
 }
 
 func (d *DockerClient) InspectPlugin(name string) (string, error) {
-	cmd := exec.Command("docker", "plugin", "inspect", name)
+	cmd := d.dockerCmd("plugin", "inspect", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error inspecting plugin: %v, output: %s", err, string(output))
@@ -725,7 +807,7 @@ func (d *DockerClient) RemovePlugin(name string, force bool) error {
 		args = append(args, "-f")
 	}
 	args = append(args, name)
-	cmd := exec.Command("docker", args...)
+	cmd := d.dockerCmd(args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error removing plugin: %v, output: %s", err, string(output))
@@ -734,7 +816,7 @@ func (d *DockerClient) RemovePlugin(name string, force bool) error {
 }
 
 func (d *DockerClient) EnablePlugin(name string) error {
-	cmd := exec.Command("docker", "plugin", "enable", name)
+	cmd := d.dockerCmd("plugin", "enable", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error enabling plugin: %v, output: %s", err, string(output))
@@ -743,7 +825,7 @@ func (d *DockerClient) EnablePlugin(name string) error {
 }
 
 func (d *DockerClient) DisablePlugin(name string) error {
-	cmd := exec.Command("docker", "plugin", "disable", name)
+	cmd := d.dockerCmd("plugin", "disable", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error disabling plugin: %v, output: %s", err, string(output))
@@ -752,7 +834,7 @@ func (d *DockerClient) DisablePlugin(name string) error {
 }
 
 func (d *DockerClient) InstallPlugin(name string) error {
-	cmd := exec.Command("docker", "plugin", "install", "--grant-all-permissions", name)
+	cmd := d.dockerCmd("plugin", "install", "--grant-all-permissions", name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error installing plugin: %v, output: %s", err, string(output))
@@ -772,33 +854,70 @@ func (d *DockerClient) ListTasksForNodeResource(nodeID string) ([]common.Resourc
 	return d.Task.ListForNode(nodeID)
 }
 
+// ensureComposeTarget tells the compose manager where its CLI commands
+// must run: on the remote host for SSH contexts (compose files live
+// there), locally (pinned to the right context) otherwise.
+func (d *DockerClient) ensureComposeTarget() {
+	d.composeTargetOnce.Do(func() {
+		if d.IsSSHContext() {
+			d.Compose.SetExecTarget(d.ContextName, d.GetSSHHost())
+		} else {
+			d.Compose.SetExecTarget(d.ContextName, "")
+		}
+	})
+}
+
 func (d *DockerClient) StopComposeProject(projectName string) error {
+	d.ensureComposeTarget()
 	return d.Compose.Stop(projectName)
 }
 
 func (d *DockerClient) UpComposeProject(projectName string) error {
+	d.ensureComposeTarget()
 	return d.Compose.Up(projectName)
 }
 
 func (d *DockerClient) RedeployComposeProject(projectName string) error {
+	d.ensureComposeTarget()
 	return d.Compose.Redeploy(projectName)
 }
 
 func (d *DockerClient) BuildComposeProject(projectName string) error {
+	d.ensureComposeTarget()
 	return d.Compose.Build(projectName)
 }
 
 func (d *DockerClient) DownComposeProject(projectName string) error {
+	d.ensureComposeTarget()
 	return d.Compose.Down(projectName)
 }
 
 func (d *DockerClient) GetComposeConfig(projectName string) (string, error) {
+	d.ensureComposeTarget()
 	return d.Compose.GetConfig(projectName)
 }
 
 // Common/Stats wrappers
 func (d *DockerClient) GetHostStats() (common.HostStats, error) {
-	return common.GetHostStats(d.Cli, d.Ctx, d.ContextName)
+	d.hostStatsMu.Lock()
+	if d.hostStats != nil && time.Since(d.hostStatsAt) < time.Minute {
+		stats := *d.hostStats
+		d.hostStatsMu.Unlock()
+		return stats, nil
+	}
+	d.hostStatsMu.Unlock()
+
+	stats, err := common.GetHostStats(d.Cli, d.Ctx, d.ContextName)
+	if err != nil {
+		return stats, err
+	}
+
+	d.hostStatsMu.Lock()
+	d.hostStats = &stats
+	d.hostStatsAt = time.Now()
+	d.hostStatsMu.Unlock()
+
+	return stats, nil
 }
 
 func (d *DockerClient) GetHostStatsWithUsage() (common.HostStats, error) {
@@ -907,6 +1026,7 @@ func (d *DockerClient) ListServicesForSecret(secretID string) ([]common.Resource
 }
 
 func (d *DockerClient) GetComposeLogs(projectName string, since string, tail string, timestamps bool) (io.ReadCloser, error) {
+	d.ensureComposeTarget()
 	return d.Compose.Logs(projectName, since, tail, timestamps)
 }
 

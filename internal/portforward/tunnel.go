@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jr-k/d4s/internal/secrets"
+	"github.com/jr-k/d4s/internal/sshutil"
 )
 
 const socatImage = "alpine/socat"
@@ -47,6 +48,7 @@ func (a sshAuth) baseArgs() []string {
 	if a.batchMode {
 		args = append(args, "-o", "BatchMode=yes")
 	}
+	args = append(args, sshutil.ControlMasterArgs()...)
 	return append(args, a.extraArgs...)
 }
 
@@ -203,9 +205,6 @@ func (t *Tunnel) handleConn(auth sshAuth, conn net.Conn, user, host, port, remot
 	args := []string{
 		"-l", user,
 		"-p", port,
-		"-o", "ControlMaster=auto",
-		"-o", "ControlPath=/tmp/d4s-ssh-%r@%h-%p",
-		"-o", "ControlPersist=60s",
 	}
 	args = append(args, auth.baseArgs()...)
 	args = append(args, host, remoteCmd)
@@ -298,26 +297,9 @@ func (t *Tunnel) IsRunning() bool {
 }
 
 func parseSSHHost(host string) (user, addr string) {
-	user = "root"
-	addr = host
-
-	addr = strings.TrimSuffix(addr, "/")
-
-	if at := strings.Index(addr, "@"); at >= 0 {
-		user = addr[:at]
-		addr = addr[at+1:]
-	}
-
-	if _, _, err := net.SplitHostPort(addr); err != nil {
-		addr = addr + ":22"
-	}
-
-	return user, addr
+	return sshutil.ParseSSHHost(host)
 }
 
 func splitHostPort(addr string) (string, string) {
-	if idx := strings.LastIndex(addr, ":"); idx >= 0 {
-		return addr[:idx], addr[idx+1:]
-	}
-	return addr, "22"
+	return sshutil.SplitHostPort(addr)
 }

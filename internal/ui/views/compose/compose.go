@@ -10,6 +10,7 @@ import (
 	"github.com/jr-k/d4s/internal/dao"
 	daoCommon "github.com/jr-k/d4s/internal/dao/common"
 	daoCompose "github.com/jr-k/d4s/internal/dao/compose"
+	"github.com/jr-k/d4s/internal/sshutil"
 	"github.com/jr-k/d4s/internal/portforward"
 	"github.com/jr-k/d4s/internal/ui/common"
 	"github.com/jr-k/d4s/internal/ui/components/inspect"
@@ -214,14 +215,20 @@ func EditAction(app common.AppController, v *view.ResourceView) {
 				}
 			}()
 
-			editor := os.Getenv("EDITOR")
-			if editor == "" {
-				editor = "vi" // Fallback
-			}
-
 			fmt.Print("\033[H\033[2J") // Clear screen before editor
 
-			cmd := exec.Command(editor, fileToEdit)
+			var cmd *exec.Cmd
+			if docker := app.GetDocker(); docker != nil && docker.IsSSHContext() {
+				// The compose file lives on the remote host: edit it there.
+				remoteCmd := fmt.Sprintf(`exec "${EDITOR:-vi}" %s`, sshutil.ShellQuote(fileToEdit))
+				cmd = sshutil.SSHCommandTTY(docker.ContextName, docker.GetSSHHost(), remoteCmd)
+			} else {
+				editor := os.Getenv("EDITOR")
+				if editor == "" {
+					editor = "vi" // Fallback
+				}
+				cmd = exec.Command(editor, fileToEdit)
+			}
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
@@ -448,11 +455,13 @@ func parsePortsString(ports string) []dialogs.PortInfo {
 			continue
 		}
 		seen[uint16(cp)] = true
+		// Host part is either "8080" or "0.0.0.0:8080"
 		var hp int
 		hostPart := parts[0]
 		if idx := strings.LastIndex(hostPart, ":"); idx >= 0 {
-			fmt.Sscanf(hostPart[idx+1:], "%d", &hp)
+			hostPart = hostPart[idx+1:]
 		}
+		fmt.Sscanf(hostPart, "%d", &hp)
 		result = append(result, dialogs.PortInfo{
 			ContainerPort: uint16(cp),
 			HostPort:      uint16(hp),

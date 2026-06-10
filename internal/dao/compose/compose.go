@@ -7,12 +7,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/gdamore/tcell/v2"
 	"github.com/jr-k/d4s/internal/dao/common"
+	"github.com/jr-k/d4s/internal/sshutil"
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"golang.org/x/net/context"
 )
@@ -20,10 +22,71 @@ import (
 type Manager struct {
 	cli *client.Client
 	ctx context.Context
+
+	// Where docker compose CLI commands must run. For SSH contexts the
+	// compose files only exist on the remote host, so commands are
+	// executed there through ssh.
+	targetMu    sync.RWMutex
+	contextName string
+	remoteHost  string // empty = run locally
 }
 
 func NewManager(cli *client.Client, ctx context.Context) *Manager {
 	return &Manager{cli: cli, ctx: ctx}
+}
+
+// SetExecTarget configures where compose CLI commands run.
+// remoteHost is empty for local contexts, "user@ip" for SSH contexts.
+func (m *Manager) SetExecTarget(contextName, remoteHost string) {
+	m.targetMu.Lock()
+	m.contextName = contextName
+	m.remoteHost = remoteHost
+	m.targetMu.Unlock()
+}
+
+func (m *Manager) execTarget() (string, string) {
+	m.targetMu.RLock()
+	defer m.targetMu.RUnlock()
+	return m.contextName, m.remoteHost
+}
+
+// dockerCmd builds a docker CLI invocation that runs on the host where
+// the compose files live: locally (pinned to the right docker context)
+// or on the remote SSH host.
+func (m *Manager) dockerCmd(args []string, workDir string) *exec.Cmd {
+	contextName, remoteHost := m.execTarget()
+
+	if remoteHost != "" {
+		quoted := make([]string, 0, len(args)+1)
+		quoted = append(quoted, "docker")
+		for _, a := range args {
+			quoted = append(quoted, sshutil.ShellQuote(a))
+		}
+		remoteCmd := strings.Join(quoted, " ")
+		if workDir != "" {
+			remoteCmd = fmt.Sprintf("cd %s && %s", sshutil.ShellQuote(workDir), remoteCmd)
+		}
+		return sshutil.SSHCommand(contextName, remoteHost, remoteCmd)
+	}
+
+	cmd := exec.Command("docker", args...)
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
+	if contextName != "" && contextName != "default" && contextName != "env" {
+		cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+contextName)
+	}
+	return cmd
+}
+
+// readConfigFile reads a compose file from where it actually lives.
+func (m *Manager) readConfigFile(path string) ([]byte, error) {
+	contextName, remoteHost := m.execTarget()
+	if remoteHost == "" {
+		return os.ReadFile(path)
+	}
+	cmd := sshutil.SSHCommand(contextName, remoteHost, "cat "+sshutil.ShellQuote(path))
+	return cmd.Output()
 }
 
 // ComposeProject Model
@@ -209,7 +272,7 @@ func (m *Manager) GetConfig(projectName string) (string, error) {
 		path := strings.TrimSpace(f)
 		if path == "" { continue }
 		
-		content, err := os.ReadFile(path)
+		content, err := m.readConfigFile(path)
 		if err != nil {
 			sb.WriteString(fmt.Sprintf("# Error reading %s: %v\n", path, err))
 			continue
@@ -221,28 +284,6 @@ func (m *Manager) GetConfig(projectName string) (string, error) {
 	}
 	
 	return sb.String(), nil
-}
-
-func (m *Manager) countServices(projectName string, configPaths []string) int {
-	args := []string{"compose", "-p", projectName}
-	for _, path := range configPaths {
-		args = append(args, "-f", path)
-	}
-	args = append(args, "config", "--services")
-
-	cmd := exec.Command("docker", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-
-	count := 0
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		if line != "" {
-			count++
-		}
-	}
-	return count
 }
 
 func (m *Manager) getConfigPaths(projectName string) ([]string, error) {
@@ -285,7 +326,7 @@ func (m *Manager) Logs(projectName string, since string, tail string, timestamps
 		args = append(args, "--since", since)
 	}
 
-	cmd := exec.Command("docker", args...)
+	cmd := m.dockerCmd(args, "")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -303,10 +344,7 @@ func (m *Manager) Logs(projectName string, since string, tail string, timestamps
 }
 
 func (m *Manager) Down(projectName string) error {
-	var args []string
-	args = append(args, "compose", "-p", projectName, "down")
-
-	cmd := exec.Command("docker", args...)
+	cmd := m.dockerCmd([]string{"compose", "-p", projectName, "down"}, "")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("error running docker compose down: %v, output: %s", err, string(output))
@@ -324,21 +362,7 @@ func (m *Manager) Redeploy(projectName string) error {
 		return err
 	}
 
-	args := []string{"compose", "-p", projectName}
-	for _, path := range paths {
-		args = append(args, "-f", path)
-	}
-	args = append(args, "up", "-d", "--force-recreate")
-
-	cmd := exec.Command("docker", args...)
-	if len(paths) > 0 {
-		cmd.Dir = filepath.Dir(paths[0])
-	}
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error running docker compose up: %v\nOutput: %s", err, string(output))
-	}
-	return nil
+	return m.up(projectName, paths, "--force-recreate")
 }
 
 func (m *Manager) Up(projectName string) error {
@@ -346,19 +370,7 @@ func (m *Manager) Up(projectName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to up project: %v", err)
 	}
-
-	args := []string{"compose", "-p", projectName}
-	for _, path := range paths {
-		args = append(args, "-f", path)
-	}
-	args = append(args, "up", "-d", "--force-recreate")
-
-	cmd := exec.Command("docker", args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("error running docker compose up: %v\nOutput: %s", err, string(output))
-	}
-	return nil
+	return m.up(projectName, paths, "--force-recreate")
 }
 
 func (m *Manager) Build(projectName string) error {
@@ -366,17 +378,25 @@ func (m *Manager) Build(projectName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build project: %v", err)
 	}
+	return m.up(projectName, paths, "--build")
+}
 
+func (m *Manager) up(projectName string, paths []string, extraFlag string) error {
 	args := []string{"compose", "-p", projectName}
 	for _, path := range paths {
 		args = append(args, "-f", path)
 	}
-	args = append(args, "up", "-d", "--build")
+	args = append(args, "up", "-d", extraFlag)
 
-	cmd := exec.Command("docker", args...)
+	workDir := ""
+	if len(paths) > 0 {
+		workDir = filepath.Dir(paths[0])
+	}
+
+	cmd := m.dockerCmd(args, workDir)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("error running docker compose up --build: %v\nOutput: %s", err, string(output))
+		return fmt.Errorf("error running docker compose up: %v\nOutput: %s", err, string(output))
 	}
 	return nil
 }

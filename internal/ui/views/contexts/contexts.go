@@ -15,7 +15,7 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 )
 
-var Headers = []string{"NAME", "CURRENT", "DESCRIPTION", "ENDPOINT"}
+var Headers = []string{"NAME", "CURRENT", "DESCRIPTION", "TYPE", "ENDPOINT"}
 
 type Context struct {
 	Name        string
@@ -25,12 +25,29 @@ type Context struct {
 }
 
 func (c Context) GetID() string { return c.Name }
+
+// Type derives the context kind from its endpoint scheme.
+func (c Context) Type() string {
+	switch {
+	case strings.HasPrefix(c.Endpoint, "ssh://"):
+		return "ssh"
+	case strings.HasPrefix(c.Endpoint, "tcp://"):
+		return "tcp"
+	case strings.HasPrefix(c.Endpoint, "unix://"), strings.HasPrefix(c.Endpoint, "npipe://"):
+		return "local"
+	case c.Endpoint == "":
+		return "unknown"
+	default:
+		return strings.SplitN(c.Endpoint, "://", 2)[0]
+	}
+}
+
 func (c Context) GetCells() []string {
 	current := "False"
 	if c.Current {
 		current = "True"
 	}
-	return []string{c.Name, current, c.Description, c.Endpoint}
+	return []string{c.Name, current, c.Description, c.Type(), c.Endpoint}
 }
 
 func (c Context) GetStatusColor() (tcell.Color, tcell.Color) {
@@ -51,6 +68,8 @@ func (c Context) GetColumnValue(column string) string {
 		return "False"
 	case "description":
 		return c.Description
+	case "type":
+		return c.Type()
 	case "endpoint":
 		return c.Endpoint
 	}

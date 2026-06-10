@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -13,6 +14,17 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/rivo/tview"
 )
+
+// TryAcquireFetch reports whether a new background fetch may start.
+// It returns false while another fetch for this view is still running,
+// preventing refresh ticks from piling up on slow (SSH) transports.
+func (v *ResourceView) TryAcquireFetch() bool {
+	return v.fetchInFlight.CompareAndSwap(false, true)
+}
+
+func (v *ResourceView) ReleaseFetch() {
+	v.fetchInFlight.Store(false)
+}
 
 // ResourceView is the generic table view for any resource
 type ResourceView struct {
@@ -32,6 +44,9 @@ type ResourceView struct {
 	ColumnWidths []int                  // Cache for column widths
 	CurrentScope *common.Scope          // Tracks which scope the current data belongs to
 	IsLoading    bool                   // Navigation lock
+
+	// Guard against overlapping background fetches (slow SSH transports)
+	fetchInFlight atomic.Bool
 
 	// Pinned sort: always applied first (unless user sorts on this column)
 	PinnedSortColumn string // Column name (e.g. "ANON"), resolved dynamically

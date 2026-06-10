@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -22,29 +21,29 @@ import (
 	"github.com/jr-k/d4s/internal/ui/styles"
 	"github.com/jr-k/d4s/internal/ui/views/aliases"
 	"github.com/jr-k/d4s/internal/ui/views/compose"
+	"github.com/jr-k/d4s/internal/ui/views/configs"
 	"github.com/jr-k/d4s/internal/ui/views/containers"
+	"github.com/jr-k/d4s/internal/ui/views/contexts"
 	"github.com/jr-k/d4s/internal/ui/views/images"
 	"github.com/jr-k/d4s/internal/ui/views/networks"
 	"github.com/jr-k/d4s/internal/ui/views/nodes"
-	"github.com/jr-k/d4s/internal/ui/views/configs"
-	"github.com/jr-k/d4s/internal/ui/views/secrets"
-	"github.com/jr-k/d4s/internal/ui/views/contexts"
 	"github.com/jr-k/d4s/internal/ui/views/plugins"
 	"github.com/jr-k/d4s/internal/ui/views/portforwards"
+	"github.com/jr-k/d4s/internal/ui/views/secrets"
+	"github.com/jr-k/d4s/internal/ui/views/services"
 	"github.com/jr-k/d4s/internal/ui/views/stacks"
 	"github.com/jr-k/d4s/internal/ui/views/tasks"
-	"github.com/jr-k/d4s/internal/ui/views/services"
 	"github.com/jr-k/d4s/internal/ui/views/volumes"
 	"github.com/jr-k/d4s/internal/updater"
 	"github.com/rivo/tview"
 )
 
 type App struct {
-	TviewApp        *tview.Application
-	Screen          tcell.Screen
-	Docker          *dao.DockerClient
-	Cfg             *config.Config
-	PortForwards    *portforward.Manager
+	TviewApp     *tview.Application
+	Screen       tcell.Screen
+	Docker       *dao.DockerClient
+	Cfg          *config.Config
+	PortForwards *portforward.Manager
 
 	// Components
 	Layout  *tview.Flex
@@ -180,7 +179,7 @@ func (a *App) Run() error {
 
 	// Pre-pull shell pod image so volume shell and secret decode are fast on first use
 	shellImage := a.Cfg.D4S.ShellPod.Image
-	go exec.Command("docker", "pull", shellImage).Run()
+	go common.DockerCommand(a, "pull", shellImage).Run()
 
 	// Preload all views data in background for instant navigation
 	a.preloadViews()

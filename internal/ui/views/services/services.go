@@ -1054,11 +1054,13 @@ func parsePortsString(ports string) []dialogs.PortInfo {
 			continue
 		}
 		seen[uint16(cp)] = true
+		// Host part is either "8080" or "0.0.0.0:8080"
 		var hp int
 		hostPart := parts[0]
 		if idx := strings.LastIndex(hostPart, ":"); idx >= 0 {
-			fmt.Sscanf(hostPart[idx+1:], "%d", &hp)
+			hostPart = hostPart[idx+1:]
 		}
+		fmt.Sscanf(hostPart, "%d", &hp)
 		result = append(result, dialogs.PortInfo{
 			ContainerPort: uint16(cp),
 			HostPort:      uint16(hp),

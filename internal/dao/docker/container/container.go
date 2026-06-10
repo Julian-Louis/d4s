@@ -32,6 +32,11 @@ type Manager struct {
 	statsCache map[string]CachedStats
 	statsMutex sync.RWMutex
 	updating   int32
+
+	// Minimum delay between two stats collection rounds (0 = every List).
+	// Raised on slow transports (SSH) to limit remote round-trips.
+	minStatsInterval atomic.Int64
+	lastStatsRun     atomic.Int64
 }
 
 func NewManager(cli *client.Client, ctx context.Context) *Manager {
@@ -40,6 +45,11 @@ func NewManager(cli *client.Client, ctx context.Context) *Manager {
 		ctx:        ctx,
 		statsCache: make(map[string]CachedStats),
 	}
+}
+
+// SetMinStatsInterval throttles per-container stats collection.
+func (m *Manager) SetMinStatsInterval(d time.Duration) {
+	m.minStatsInterval.Store(int64(d))
 }
 
 // Container Model
@@ -143,9 +153,17 @@ func (c Container) GetDefaultSortColumn() string {
 }
 
 func (m *Manager) updateStats(containers []types.Container) {
+	if min := m.minStatsInterval.Load(); min > 0 {
+		last := m.lastStatsRun.Load()
+		if last > 0 && time.Since(time.Unix(0, last)) < time.Duration(min) {
+			return
+		}
+	}
+
 	if !atomic.CompareAndSwapInt32(&m.updating, 0, 1) {
 		return
 	}
+	m.lastStatsRun.Store(time.Now().UnixNano())
 
 	// Create a detached operation, do not block caller
 	go func() {

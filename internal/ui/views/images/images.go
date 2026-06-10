@@ -304,6 +304,13 @@ func DiveAction(app common.AppController, v *view.ResourceView) {
 		fmt.Printf("Running dive on %s...\n", id)
 		
 		cmd := exec.Command(path, id)
+		// Point dive at the same daemon as d4s (remote over SSH included)
+		if docker := app.GetDocker(); docker != nil && docker.ContextName != "" && docker.ContextName != "default" {
+			cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+docker.ContextName)
+			if docker.IsSSHContext() {
+				cmd.Env = append(cmd.Env, "DOCKER_HOST=ssh://"+docker.GetSSHHost())
+			}
+		}
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

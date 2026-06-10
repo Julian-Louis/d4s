@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -161,8 +162,14 @@ func Open(app common.AppController, res dao.Resource) {
 		return
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		app.SetFlashError(fmt.Sprintf("path not found on host: %s", path))
+	if docker := app.GetDocker(); docker != nil && docker.IsSSHContext() {
+		app.SetFlashError(fmt.Sprintf("mountpoint is on remote host %s, cannot open locally", docker.GetSSHHost()))
+		return
+	}
+
+	path, err := resolveHostPath(path, vol.Name)
+	if err != nil {
+		app.SetFlashError(err.Error())
 		return
 	}
 
@@ -188,6 +195,27 @@ func Open(app common.AppController, res dao.Resource) {
 			}
 		})
 	})
+}
+
+// resolveHostPath maps a daemon-side mountpoint to a path reachable from
+// this machine. On macOS the daemon runs inside a VM, so /var/lib/docker
+// is not directly visible; OrbStack however exposes volumes under
+// ~/OrbStack/docker/volumes/<name>.
+func resolveHostPath(mount, volName string) (string, error) {
+	if _, err := os.Stat(mount); err == nil {
+		return mount, nil
+	}
+
+	if runtime.GOOS == "darwin" && volName != "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			orbPath := filepath.Join(home, "OrbStack", "docker", "volumes", volName)
+			if _, err := os.Stat(orbPath); err == nil {
+				return orbPath, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("volume data lives inside the Docker VM (%s), use <s> shell instead", mount)
 }
 
 func Inspect(app common.AppController, id string) {
@@ -247,12 +275,12 @@ func Shell(app common.AppController, id string) {
 		fmt.Print("\033[H\033[2J")
 
 		// Kill any leftover d4s shell containers from previous sessions
-		if out, _ := exec.Command("docker", "ps", "-aq", "--filter", "name=d4s-vol-shell-").Output(); len(out) > 0 {
+		if out, _ := common.DockerCommand(app, "ps", "-aq", "--filter", "name=d4s-vol-shell-").Output(); len(out) > 0 {
 			ids := strings.Fields(strings.TrimSpace(string(out)))
 			if len(ids) > 0 {
 				fmt.Printf("Cleaning up %d previous shell container(s)...\n", len(ids))
 				args := append([]string{"rm", "-f"}, ids...)
-				exec.Command("docker", args...).Run()
+				common.DockerCommand(app, args...).Run()
 				time.Sleep(500 * time.Millisecond)
 			}
 		}
@@ -261,7 +289,7 @@ func Shell(app common.AppController, id string) {
 
 		containerName := fmt.Sprintf("d4s-vol-shell-%d", time.Now().UnixNano())
 		shellImage := app.GetConfig().D4S.ShellPod.Image
-		cmd := exec.Command("docker", "run", "--pull", "always", "--rm", "--name", containerName, "-it", "-v", id+":/data", "-p", "33000-33100:33000-33100", "-w", "/data", shellImage, "sh", "-c", `sh; printf "\nReturning to d4s, please wait...\n"`)
+		cmd := common.DockerCommand(app, "run", "--pull", "always", "--rm", "--name", containerName, "-it", "-v", id+":/data", "-p", "33000-33100:33000-33100", "-w", "/data", shellImage, "sh", "-c", `sh; printf "\nReturning to d4s, please wait...\n"`)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -280,7 +308,7 @@ func Shell(app common.AppController, id string) {
 		}()
 
 		err := cmd.Run()
-		go exec.Command("docker", "rm", "-f", containerName).Run()
+		go common.DockerCommand(app, "rm", "-f", containerName).Run()
 
 		if err != nil {
 			if exitErr, ok := err.(*exec.ExitError); ok {
