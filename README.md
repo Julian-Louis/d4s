@@ -36,6 +36,7 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 - **Compose Aware**: Easily identify containers belonging to **Compose Projects**.
 - **Swarm Aware**: Supports **Nodes**, **Stacks**, **Services**, **Tasks**, **Secrets**, **Configs**.
 - **Docker Settings**: Supports **Contexts**, **Plugins**.
+- **Remote via SSH Tunnel**: Manage remote Docker daemons over SSH with port-forwarding to localhost.
 - **Powerful Search**: Instant fuzzy filtering (`/`) and command palette (`:`).
 - **Live Stats**: Real-time CPU/Mem usage for containers and host context.
 - **Advanced Logs**: Streaming logs with auto-scroll, timestamps toggle, wrap mode and dump to file.
@@ -259,6 +260,27 @@ D4S comes with a few built-in skins:
 ### Custom Skins
 
 D4S supports custom skins. Skins are stored in `$XDG_DATA_HOME/d4s/skins/<name>.yaml` (defaults to `~/.local/share/d4s/skins`).
+
+## Remote Management (SSH Tunnel)
+
+D4S can manage remote Docker daemons over SSH. No agent or extra binary is needed on the remote host.
+
+From the Contexts view (`:o`), press `Shift+A` to add an SSH context (key or password auth). Credentials are stored in your OS keychain with an encrypted-file fallback for headless systems. SSH ControlMaster keeps the connection fast.
+
+### Port-Forwarding
+
+| Shortcut | Action |
+|----------|--------|
+| `Shift+F` | Create a port-forward (container, service, or compose project) |
+| `f` | Show active port-forwards for the selected resource |
+| `:portforward` | Global view of all active tunnels |
+
+Port-forwards expose a remote container port on your local machine (`localhost:<port>`). They persist across view switches and can be stopped or deleted from the `:portforward` view.
+
+### Limitations in SSH mode
+
+- Volume "Open in Finder" is unavailable (data lives on the remote host, use `s` shell instead)
+- Dive runs against the remote daemon but may not support SSH depending on its version
 
 ## Command Palette
 

@@ -77,7 +77,7 @@ func NewHelpView(app common.AppController) tview.Primitive {
 		AddItem(nil, 0, 1, false).
 		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
 			AddItem(nil, 0, 1, false).
-			AddItem(helpBox, 30, 1, true).
+			AddItem(helpBox, 24, 1, true).
 			AddItem(nil, 0, 1, false), 90, 1, true).
 		AddItem(nil, 0, 1, false)
 
