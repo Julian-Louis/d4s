@@ -243,6 +243,11 @@ func Edit(app common.AppController, v *view.ResourceView) {
 		}
 	}
 
+	if strings.HasPrefix(currentEndpoint, "ssh://") {
+		editSSH(app, id, currentDesc, currentEndpoint)
+		return
+	}
+
 	fields := []dialogs.FormField{
 		{Name: "description", Label: "Description", Type: dialogs.FieldTypeInput, Default: currentDesc},
 		{Name: "host", Label: "Docker Host", Type: dialogs.FieldTypeInput, Default: currentEndpoint},
@@ -256,13 +261,143 @@ func Edit(app common.AppController, v *view.ResourceView) {
 
 		app.RunInBackground(func() {
 			err := app.GetDocker().UpdateContext(id, description, host)
+			isCurrent := app.GetDocker().ContextName == id
 			app.GetTviewApp().QueueUpdateDraw(func() {
 				if err != nil {
 					app.AppendFlashError(fmt.Sprintf("failed to update context: %v", err))
-				} else {
-					app.AppendFlashSuccess(fmt.Sprintf("context %s updated", id))
+					app.RefreshCurrentView()
+					return
 				}
-				app.RefreshCurrentView()
+				app.AppendFlashSuccess(fmt.Sprintf("context %s updated", id))
+				if isCurrent {
+					// Rebuild the client so the new endpoint applies immediately
+					app.ReloadContext(id)
+				} else {
+					app.RefreshCurrentView()
+				}
+			})
+		})
+	})
+}
+
+// parseSSHURL splits "ssh://user@ip[:port][/socket/path]" into the host
+// part and the optional remote socket path.
+func parseSSHURL(endpoint string) (host, socket string) {
+	rest := strings.TrimPrefix(endpoint, "ssh://")
+	if idx := strings.Index(rest, "/"); idx >= 0 {
+		return rest[:idx], rest[idx:]
+	}
+	return rest, ""
+}
+
+func editSSH(app common.AppController, id, currentDesc, currentEndpoint string) {
+	existing, _ := secrets.Load(id)
+
+	currentAuth := secrets.AuthTypeKey
+	if existing != nil && existing.AuthType != "" {
+		currentAuth = existing.AuthType
+	}
+
+	items := []dialogs.PickerItem{
+		{Label: "SSH Key", Description: "authenticate with a private key", Value: secrets.AuthTypeKey},
+		{Label: "Password", Description: "authenticate with a password", Value: secrets.AuthTypePassword},
+	}
+	for i := range items {
+		if items[i].Value == currentAuth {
+			items[i].Description += " (current)"
+		}
+	}
+
+	dialogs.ShowPicker(app, "Authentication Method", items, func(authType string) {
+		showSSHEditForm(app, id, currentDesc, currentEndpoint, authType, existing)
+	})
+}
+
+func showSSHEditForm(app common.AppController, id, currentDesc, currentEndpoint, authType string, existing *secrets.SSHCredentials) {
+	currentHost, currentSocket := parseSSHURL(currentEndpoint)
+	if currentSocket == "" {
+		currentSocket = "/var/run/docker.sock"
+	}
+
+	// Pre-fill credentials only when the auth method is unchanged
+	var defaultKey, defaultPassphrase, defaultPassword string
+	if existing != nil && existing.AuthType == authType {
+		defaultKey = existing.KeyPath
+		defaultPassphrase = existing.Passphrase
+		defaultPassword = existing.Password
+	}
+
+	fields := []dialogs.FormField{
+		{Name: "description", Label: "Description", Type: dialogs.FieldTypeInput, Default: currentDesc},
+		{Name: "host", Label: "Host (user@ip)", Type: dialogs.FieldTypeInput, Default: currentHost},
+	}
+
+	if authType == secrets.AuthTypeKey {
+		fields = append(fields,
+			dialogs.FormField{Name: "key", Label: "SSH Key", Type: dialogs.FieldTypeInput, Default: defaultKey, Placeholder: "~/.ssh/id_ed25519"},
+			dialogs.FormField{Name: "passphrase", Label: "Passphrase (optional)", Type: dialogs.FieldTypeInput, Default: defaultPassphrase, Secret: true},
+		)
+	} else {
+		fields = append(fields,
+			dialogs.FormField{Name: "password", Label: "Password", Type: dialogs.FieldTypeInput, Default: defaultPassword, Secret: true},
+		)
+	}
+
+	fields = append(fields,
+		dialogs.FormField{Name: "socket", Label: "Docker Socket", Type: dialogs.FieldTypeInput, Default: currentSocket},
+	)
+
+	dialogs.ShowFormWithDescription(app, fmt.Sprintf("Edit Context: %s", id), "Updates the SSH context and its credentials", fields, func(result dialogs.FormResult) {
+		description := result["description"]
+		host := strings.TrimSpace(result["host"])
+		socket := strings.TrimSpace(result["socket"])
+
+		if host == "" {
+			app.SetFlashError("host is required")
+			return
+		}
+		if authType == secrets.AuthTypePassword && result["password"] == "" {
+			app.SetFlashError("password is required")
+			return
+		}
+
+		creds := secrets.SSHCredentials{
+			AuthType:   authType,
+			KeyPath:    expandHome(strings.TrimSpace(result["key"])),
+			Passphrase: result["passphrase"],
+			Password:   result["password"],
+		}
+
+		sshURL := fmt.Sprintf("ssh://%s", host)
+		if socket != "" && socket != "/var/run/docker.sock" {
+			sshURL = fmt.Sprintf("ssh://%s%s", host, socket)
+		}
+
+		app.AppendFlashPending(fmt.Sprintf("updating context %s...", id))
+
+		app.RunInBackground(func() {
+			err := app.GetDocker().UpdateContext(id, description, sshURL)
+			if err == nil {
+				if kerr := secrets.Save(id, creds); kerr != nil {
+					app.GetTviewApp().QueueUpdateDraw(func() {
+						app.AppendFlashError(fmt.Sprintf("context updated but credentials not saved: %v", kerr))
+					})
+				}
+			}
+			isCurrent := app.GetDocker().ContextName == id
+			app.GetTviewApp().QueueUpdateDraw(func() {
+				if err != nil {
+					app.AppendFlashError(fmt.Sprintf("failed to update context: %v", err))
+					app.RefreshCurrentView()
+					return
+				}
+				app.AppendFlashSuccess(fmt.Sprintf("SSH context '%s' updated", id))
+				if isCurrent {
+					// Rebuild the client so the new endpoint/credentials apply immediately
+					app.ReloadContext(id)
+				} else {
+					app.RefreshCurrentView()
+				}
 			})
 		})
 	})

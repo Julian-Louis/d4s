@@ -78,6 +78,18 @@ func (a *App) SetDefaultContext(contextName string) {
 		return
 	}
 
+	a.ReloadContext(contextName)
+}
+
+// ReloadContext rebuilds the Docker client for contextName, even when it
+// is already the active context. Used after editing a context (endpoint
+// or credentials change) so changes apply without restarting d4s.
+func (a *App) ReloadContext(contextName string) {
+	contextName = strings.TrimSpace(contextName)
+	if contextName == "" {
+		return
+	}
+
 	a.SetFlashPending(fmt.Sprintf("switching context to %s...", contextName))
 	a.SetPaused(true)
 	a.StopAutoRefresh()
@@ -94,6 +106,9 @@ func (a *App) SetDefaultContext(contextName string) {
 	a.ActiveFilter = ""
 	for _, v := range a.Views {
 		v.SetLoading(true)
+		// Free the fetch guard held by any fetch still running against the
+		// old endpoint (possibly hung), and mark its results as stale.
+		v.InvalidateFetch()
 	}
 	a.RestoreFocus()
 	a.UpdateShortcuts()

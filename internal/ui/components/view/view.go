@@ -18,11 +18,34 @@ import (
 // TryAcquireFetch reports whether a new background fetch may start.
 // It returns false while another fetch for this view is still running,
 // preventing refresh ticks from piling up on slow (SSH) transports.
-func (v *ResourceView) TryAcquireFetch() bool {
-	return v.fetchInFlight.CompareAndSwap(false, true)
+// The returned generation must be passed back to ReleaseFetch.
+func (v *ResourceView) TryAcquireFetch() (int64, bool) {
+	if !v.fetchInFlight.CompareAndSwap(false, true) {
+		return 0, false
+	}
+	return v.fetchGen.Load(), true
 }
 
-func (v *ResourceView) ReleaseFetch() {
+// ReleaseFetch clears the in-flight guard, unless the fetch was
+// invalidated (context reload) while it was running: in that case the
+// guard now belongs to the new context's fetches.
+func (v *ResourceView) ReleaseFetch(gen int64) {
+	if v.fetchGen.Load() == gen {
+		v.fetchInFlight.Store(false)
+	}
+}
+
+// FetchGen returns the current fetch generation. A fetch whose acquired
+// generation no longer matches must discard its results (stale context).
+func (v *ResourceView) FetchGen() int64 {
+	return v.fetchGen.Load()
+}
+
+// InvalidateFetch cancels any in-flight fetch: its results will be
+// dropped and the guard is freed so the new context can fetch
+// immediately instead of waiting for the old (possibly hung) transport.
+func (v *ResourceView) InvalidateFetch() {
+	v.fetchGen.Add(1)
 	v.fetchInFlight.Store(false)
 }
 
@@ -47,6 +70,7 @@ type ResourceView struct {
 
 	// Guard against overlapping background fetches (slow SSH transports)
 	fetchInFlight atomic.Bool
+	fetchGen      atomic.Int64
 
 	// Pinned sort: always applied first (unless user sorts on this column)
 	PinnedSortColumn string // Column name (e.g. "ANON"), resolved dynamically

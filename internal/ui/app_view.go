@@ -132,10 +132,11 @@ func (a *App) RefreshCurrentView() {
 
 		// Skip this tick if the previous fetch is still in flight
 		// (slow SSH transport): avoids piling up redundant API calls.
-		if !v.TryAcquireFetch() {
+		gen, acquired := v.TryAcquireFetch()
+		if !acquired {
 			return
 		}
-		defer v.ReleaseFetch()
+		defer v.ReleaseFetch(gen)
 
 		var err error
 		var data []dao.Resource
@@ -161,6 +162,11 @@ func (a *App) RefreshCurrentView() {
 		}
 
 		a.SafeQueueUpdateDraw(func() {
+			// Drop stale results if the context was reloaded mid-fetch
+			if v.FetchGen() != gen {
+				return
+			}
+
 			// Check if page changed while fetching?
 			currentPage, _ := a.Pages.GetFrontPage()
 			if currentPage != page {

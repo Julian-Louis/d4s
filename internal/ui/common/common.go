@@ -77,6 +77,7 @@ type AppController interface {
 
 	// Context Management
 	SetDefaultContext(contextName string)
+	ReloadContext(contextName string)
 
 	// Port-Forward Management
 	GetPortForwardManager() *portforward.Manager
