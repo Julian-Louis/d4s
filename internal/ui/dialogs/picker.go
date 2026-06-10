@@ -80,6 +80,8 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 	dialogHeight := len(items)*2 + 4
 	if subject != "" {
 		dialogHeight += 3
+	} else {
+		dialogHeight += 1
 	}
 
 	pages := app.GetPages()
@@ -156,6 +158,11 @@ func ShowPicker(app common.AppController, title string, items []PickerItem, onSe
 		midSpacer := tview.NewBox()
 		midSpacer.SetBackgroundColor(styles.ColorBlack)
 		content.AddItem(midSpacer, 1, 0, false)
+	} else {
+		// Blank line between the title and the list
+		topSpacer := tview.NewBox()
+		topSpacer.SetBackgroundColor(styles.ColorBlack)
+		content.AddItem(topSpacer, 1, 0, false)
 	}
 
 	content.AddItem(list, 0, 1, true)
