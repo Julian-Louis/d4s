@@ -7,7 +7,7 @@ before:
 
 builds:
   - id: d4s
-    main: ./cmd/d4s
+    main: .
     binary: d4s
     env:
       - CGO_ENABLED=0

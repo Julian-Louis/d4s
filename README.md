@@ -5,7 +5,7 @@
 
 # D-Force (d4s)
 
-D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local Docker ecosystem. Stop wrestling with verbose CLI commands and start managing your containers like a pro.
+D4S (pronounced *D-Force*) brings the power and ergonomics of [K9s](https://github.com/derailed/k9s) to the local Docker ecosystem. Stop wrestling with verbose CLI commands and start managing your containers like a pro.
 
 <a target="_blank" href="https://github.com/jr-k/d4s/commit/HEAD"><img src="https://img.shields.io/github/last-commit/jr-k/d4s?color=green" /></a>
 <a target="_blank" href="https://github.com/jr-k/d4s/stargazers"><img src="https://img.shields.io/github/stars/jr-k/d4s?style=flat&color=yellow" /></a>
@@ -34,12 +34,12 @@ D4S (pronounced *D-Force*) brings the power and ergonomics of K9s to the local D
 - **Keyboard Centric**: Vim-like navigation (`j`/`k`), shortcuts for everything. No mouse needed.
 - **Full Scope**: Supports **Containers**, **Images**, **Volumes**, **Networks**.
 - **Compose Aware**: Easily identify containers belonging to **Compose Projects**.
-- **Swarm Aware**: Supports **Nodes**, **Stacks**, **Services**, **Tasks**, **Secrets**, **Configs**.
+- **Swarm Aware**: Supports **Nodes**, **Stacks**, **Services**, **Tasks**, **Secrets**, **ConfigMaps**.
 - **Docker Settings**: Supports **Contexts**, **Plugins**.
 - **Remote via SSH Tunnel**: Manage remote Docker daemons over SSH with port-forwarding to localhost.
 - **Powerful Search**: Instant fuzzy filtering (`/`) and command palette (`:`).
 - **Live Stats**: Real-time CPU/Mem usage for containers and host context.
-- **Advanced Logs**: Streaming logs with auto-scroll, timestamps toggle, wrap mode and dump to file.
+- **Advanced Logs**: Streaming logs with auto-scroll, fullscreen, timestamps toggle, wrap mode, marks and save to file (`ctrl-s`).
 - **Quick Shell**: Drop into a container shell (`s`) in a split second.
 - **Contextual Actions**: Inspect, Restart, Stop, Prune, Delete with safety confirmations.
 
@@ -77,13 +77,31 @@ echo "alias d4s='docker run --rm --pull always -it -v /var/run/docker.sock:/var/
 </details>
 
 <details>
+<summary><b>Go Install</b></summary>
+
+>Requirement: Go 1.25+
+
+```bash
+go install github.com/jr-k/d4s@latest
+```
+
+The binary lands in `$(go env GOBIN)` (or `$(go env GOPATH)/bin`). Make sure that directory is on your `PATH`.
+
+To upgrade later, just re-run the same command, or use [`gup`](https://github.com/nao1215/gup) to bulk-update all your `go install`-managed binaries:
+
+```bash
+gup update
+```
+</details>
+
+<details>
 <summary><b>From Source</b></summary>
 
->Requirement: Go 1.21+
+>Requirement: Go 1.25+
 ```bash
 git clone https://github.com/jr-k/d4s.git
 cd d4s
-go build -o d4s cmd/d4s/main.go
+go build -o d4s .
 sudo mv d4s ~/.local/bin/
 ```
 
@@ -93,7 +111,7 @@ mv d4s ~/.local/bin/
 d4s
 
 # Quickly run from source
-go run cmd/d4s/main.go
+go run .
 ```
 </details>
 
@@ -147,6 +165,7 @@ sudo zypper install d4s
 ```
 </details>
 
+
 > ### Windows
 
 <details>
@@ -180,7 +199,7 @@ When deciding which Docker context to use, D4S applies the following precedence:
 4. `d4s.defaultContext` from `config.yaml`
 5. Docker CLI's own current/default context behavior
 
-If you select the literal `default` context from `shift-t`, D4S uses Docker's normal default context resolution rather than a named custom context.
+If you select the literal `default` context from `shift-o`, D4S uses Docker's normal default context resolution rather than a named custom context.
 
 All settings are optional and have sensible defaults. Below is a fully documented example:
 
@@ -194,7 +213,7 @@ d4s:
   readOnly: false
   # Default Docker context for d4s when --context, DOCKER_HOST, and DOCKER_CONTEXT are not set. Default: ""
   defaultContext: ""
-  # Default view on startup (containers, images, volumes, networks, services, nodes, compose, secrets). Default: "" (containers)
+  # Default view on startup (containers, images, volumes, networks, services, nodes, compose, aliases, secrets, configs, stacks, tasks, contexts, plugins). Default: "" (containers)
   defaultView: ""
   # When true, Ctrl+C won't exit — use :quit instead. Default: false
   noExitOnCtrlC: false
@@ -213,7 +232,7 @@ d4s:
     crumbsless: false
     # Invert all theme colors (dark↔light), preserving hue. Default: false
     invert: false
-    # Skin name — loads from $XDG_DATA_HOME/d4s/skins/<name>.yaml. Default: "default" (builtin: default, dracula)
+    # Skin name, loads from $XDG_DATA_HOME/d4s/skins/<name>.yaml. Default: "default" (builtin: default, dracula, monokai, nord, gruvbox, tokyonight)
     skin: "default"
 
   # Log viewer settings
@@ -284,11 +303,11 @@ Port-forwards expose a remote container port on your local machine (`localhost:<
 
 ## Command Palette
 
-Use `shift-t` to open the Docker context picker, switch the current d4s session to a different context, and save that selection as the default context for future d4s launches.
+Use `shift-o` to open the Docker context picker, switch the current d4s session to a different context, and save that selection as the default context for future d4s launches.
 
 If `DOCKER_HOST` or `DOCKER_CONTEXT` is set in your shell, those environment variables still override the saved D4S default for that launch.
 
-In a container log view opened with `shift-d` to export the full log of that container to `~/.config/d4s/logs/<container-id>.<timestamp>.log` (or the equivalent `$XDG_CONFIG_HOME/d4s/logs/...` path).
+In a container log view, press `ctrl-s` to save the full log of that container to `~/.config/d4s/logs/<container>.<timestamp>.log` (or the equivalent `$XDG_CONFIG_HOME/d4s/logs/...` path).
 
 ## Contributing
 
@@ -300,6 +319,6 @@ There's still plenty to do! Take a look at the [contributing guide](CONTRIBUTING
 [<img src="./docs/img/social/github.png" width="64">](https://github.com/jr-k/d4s/issues/new/choose)
 
 ---
-*Built with Go & Tview. Inspired by K9s.*
+*Built with Go & [Tview](https://github.com/rivo/tview). Inspired by [K9s](https://github.com/derailed/k9s).*
 
 *D4s uses several open source libraries. Thanks to the maintainers who make this possible.*

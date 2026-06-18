@@ -57,5 +57,3 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 )
-
-replace github.com/rivo/tview => github.com/jr-k/tview v0.0.0-20260117030207-e6ad55b7e52d
